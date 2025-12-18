@@ -55,11 +55,13 @@ jobs:
       # 2. 增加了 assets 資料夾的完整打包 (避免漏圖)
       # 3. 注意分隔符 ${{ matrix.sep }} 的使用
       run: |
+        ICON_PATH="app/ui/assets/watermark_icon.ico"
         pyinstaller main.py \
           --name="NightCat_Watermark_${{ matrix.platform_name }}" \
           --windowed \
           --onefile \
           --clean \
+          --icon="$ICON_PATH" \
           --add-data "app/ui/styles.qss${{ matrix.sep }}app/ui" \
           --add-data "app/ui/assets${{ matrix.sep }}app/ui/assets" \
           --exclude-module=matplotlib \
