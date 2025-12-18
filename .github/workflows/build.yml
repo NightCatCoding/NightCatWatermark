@@ -1,0 +1,71 @@
+name: Build and Release NightCat
+
+# 觸發規則優化：
+# 1. 當你推送 v 開頭的標籤時 (例如 v1.0.0) -> 自動構建並發布 Release
+# 2. 手動點擊按鈕 (workflow_dispatch) -> 只構建不發布 (方便你測試)
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+# 權限設置：允許這個腳本「寫入」Release 頁面
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build EXE
+    runs-on: windows-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          # 這裡依然保持輕量化依賴
+          pip install PyQt6 Pillow numpy blind-watermark
+          pip install opencv-python-headless
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller main.py ^
+            --name="NightCat_Watermark" ^
+            --windowed ^
+            --onefile ^
+            --clean ^
+            --add-data="app/ui/assets/NightCat_Music.png;app/ui/assets" ^
+            --exclude-module=matplotlib ^
+            --exclude-module=tkinter ^
+            --exclude-module=unittest ^
+            --exclude-module=email ^
+            --exclude-module=http ^
+            --exclude-module=xml ^
+            --exclude-module=pandas
+
+      # 如果不是 Tag 觸發的 (比如你只是手動測試)，就只上傳 Artifact
+      - name: Upload Artifact (Test Build)
+        if: startsWith(github.ref, 'refs/tags/') != true
+        uses: actions/upload-artifact@v4
+        with:
+          name: NightCat_Watermark_Test
+          path: dist/NightCat_Watermark.exe
+
+      # 【關鍵步驟】如果是 Tag 觸發的，直接發布到 Release 頁面！
+      - name: Release to GitHub
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/NightCat_Watermark.exe
+          # 如果是 v1.0.0-beta 這種帶後綴的，自動標記為 "Pre-release"
+          prerelease: ${{ contains(github.ref, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
