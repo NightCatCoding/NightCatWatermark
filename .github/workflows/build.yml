@@ -65,7 +65,7 @@ jobs:
           --windowed \
           --onefile \
           --clean \
-          --add-data "app/ui/assets/NightCat_Music.png${{ matrix.sep }}app/ui/assets" \
+          --add-data "app/ui/assets/dark_watermarked_blind-200.png${{ matrix.sep }}app/ui/assets" \
           --exclude-module=matplotlib \
           --exclude-module=tkinter \
           --exclude-module=unittest \
