@@ -78,9 +78,9 @@ jobs:
       run: |
         cd dist
         if [ "${{ matrix.os }}" == "windows-latest" ]; then
-          powershell Compress-Archive -Path "NightCat_Watermark_${{ matrix.platform_name }}.exe" -DestinationPath "../NightCat_${{ matrix.platform_name }}.zip"
+          powershell Compress-Archive -Path "NightCat_Watermark_${{ matrix.platform_name }}.exe" -DestinationPath "../NightCatWatermark_${{ matrix.platform_name }}.zip"
         else
-          zip -r "../NightCat_${{ matrix.platform_name }}.zip" "NightCat_Watermark_${{ matrix.platform_name }}${{ matrix.artifact_ext }}"
+          zip -r "../NightCatWatermark_${{ matrix.platform_name }}.zip" "NightCat_Watermark_${{ matrix.platform_name }}${{ matrix.artifact_ext }}"
         fi
 
     # 上傳測試構建 (非 Release 時)
@@ -88,15 +88,15 @@ jobs:
       if: startsWith(github.ref, 'refs/tags/') != true
       uses: actions/upload-artifact@v4
       with:
-        name: NightCat_${{ matrix.platform_name }}
-        path: NightCat_${{ matrix.platform_name }}.zip
+        name: NightCatWatermark_${{ matrix.platform_name }}
+        path: NightCatWatermark_${{ matrix.platform_name }}.zip
 
     # 正式發布 (Tag 觸發時)
     - name: Release to GitHub
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
-        files: NightCat_${{ matrix.platform_name }}.zip
+        files: NightCatWatermark_${{ matrix.platform_name }}.zip
         prerelease: ${{ contains(github.ref, '-') }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
