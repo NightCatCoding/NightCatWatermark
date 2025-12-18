@@ -1,71 +1,93 @@
-name: Build and Release NightCat
+name: Build and Release
 
-# 觸發規則優化：
-# 1. 當你推送 v 開頭的標籤時 (例如 v1.0.0) -> 自動構建並發布 Release
-# 2. 手動點擊按鈕 (workflow_dispatch) -> 只構建不發布 (方便你測試)
 on:
   push:
     tags:
       - "v*"
   workflow_dispatch:
 
-# 權限設置：允許這個腳本「寫入」Release 頁面
 permissions:
   contents: write
 
 jobs:
   build:
-    name: Build EXE
-    runs-on: windows-latest
-    
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows 配置
+          - os: windows-latest
+            platform_name: Windows
+            sep: ';'             # Windows 的資源分隔符是分號
+            artifact_ext: .exe   # 輸出文件後綴
+
+          # macOS 配置
+          - os: macos-latest
+            platform_name: macOS
+            sep: ':'             # Mac 的資源分隔符是冒號
+            artifact_ext: ''     # Mac二進制文件沒有後綴
+
+          # Linux 配置 (可選，如果不需要可刪除這塊)
+          - os: ubuntu-latest
+            platform_name: Linux
+            sep: ':'
+            artifact_ext: ''
+
     steps:
-      - uses: actions/checkout@v4
+    # 1. 拉取代碼
+    - uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: 'pip'
+    # 2. 設置 Python
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        cache: 'pip'
 
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pyinstaller
-          # 這裡依然保持輕量化依賴
-          pip install PyQt6 Pillow numpy blind-watermark
-          pip install opencv-python-headless
+    # 3. 安裝依賴 (全平台通用)
+    - name: Install Dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        pip install PyQt6 Pillow numpy blind-watermark opencv-python-headless
 
-      - name: Build with PyInstaller
-        run: |
-          pyinstaller main.py ^
-            --name="NightCat_Watermark" ^
-            --windowed ^
-            --onefile ^
-            --clean ^
-            --add-data="app/ui/assets/NightCat_Music.png;app/ui/assets" ^
-            --exclude-module=matplotlib ^
-            --exclude-module=tkinter ^
-            --exclude-module=unittest ^
-            --exclude-module=email ^
-            --exclude-module=http ^
-            --exclude-module=xml ^
-            --exclude-module=pandas
+    # 4. 執行打包 (關鍵修復點)
+    # 我們強制使用 bash shell，這樣就可以跨平台使用 \ 換行
+    # 並利用 matrix.sep 變量解決 Windows/Mac 的路徑分隔符差異
+    - name: Build with PyInstaller
+      shell: bash
+      run: |
+        pyinstaller main.py \
+          --name="NightCat_Watermark_${{ matrix.platform_name }}" \
+          --windowed \
+          --onefile \
+          --clean \
+          --add-data "app/ui/assets/NightCat_Music.png${{ matrix.sep }}app/ui/assets" \
+          --exclude-module=matplotlib \
+          --exclude-module=tkinter \
+          --exclude-module=unittest \
+          --exclude-module=email \
+          --exclude-module=http \
+          --exclude-module=xml \
+          --exclude-module=pandas
 
-      # 如果不是 Tag 觸發的 (比如你只是手動測試)，就只上傳 Artifact
-      - name: Upload Artifact (Test Build)
-        if: startsWith(github.ref, 'refs/tags/') != true
-        uses: actions/upload-artifact@v4
-        with:
-          name: NightCat_Watermark_Test
-          path: dist/NightCat_Watermark.exe
+    # 5. 上傳 Artifact (給開發者自己測試用)
+    - name: Upload Artifact
+      if: startsWith(github.ref, 'refs/tags/') != true
+      uses: actions/upload-artifact@v4
+      with:
+        name: NightCat_${{ matrix.platform_name }}
+        path: dist/NightCat_Watermark_${{ matrix.platform_name }}${{ matrix.artifact_ext }}
 
-      # 【關鍵步驟】如果是 Tag 觸發的，直接發布到 Release 頁面！
-      - name: Release to GitHub
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
-        with:
-          files: dist/NightCat_Watermark.exe
-          # 如果是 v1.0.0-beta 這種帶後綴的，自動標記為 "Pre-release"
-          prerelease: ${{ contains(github.ref, '-') }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # 6. 發布到 Release (給用戶下載用)
+    - name: Release to GitHub
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/NightCat_Watermark_${{ matrix.platform_name }}${{ matrix.artifact_ext }}
+        prerelease: ${{ contains(github.ref, '-') }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
