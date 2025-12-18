@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build and Release (All Platforms)
 
 on:
   push:
@@ -17,36 +17,30 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Windows 配置
           - os: windows-latest
             platform_name: Windows
-            sep: ';'             # Windows 的資源分隔符是分號
-            artifact_ext: .exe   # 輸出文件後綴
-
-          # macOS 配置
+            sep: ';'
+            artifact_ext: .exe
+          
           - os: macos-latest
             platform_name: macOS
-            sep: ':'             # Mac 的資源分隔符是冒號
-            artifact_ext: ''     # Mac二進制文件沒有後綴
+            sep: ':'
+            artifact_ext: ''
 
-          # Linux 配置 (可選，如果不需要可刪除這塊)
           - os: ubuntu-latest
             platform_name: Linux
             sep: ':'
             artifact_ext: ''
 
     steps:
-    # 1. 拉取代碼
     - uses: actions/checkout@v4
 
-    # 2. 設置 Python
     - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
         python-version: "3.12"
         cache: 'pip'
 
-    # 3. 安裝依賴 (全平台通用)
     - name: Install Dependencies
       shell: bash
       run: |
@@ -54,18 +48,20 @@ jobs:
         pip install pyinstaller
         pip install PyQt6 Pillow numpy blind-watermark opencv-python-headless
 
-    # 4. 執行打包 (關鍵修復點)
-    # 我們強制使用 bash shell，這樣就可以跨平台使用 \ 換行
-    # 並利用 matrix.sep 變量解決 Windows/Mac 的路徑分隔符差異
     - name: Build with PyInstaller
       shell: bash
+      # 關鍵修改：
+      # 1. 增加了 styles.qss 的打包
+      # 2. 增加了 assets 資料夾的完整打包 (避免漏圖)
+      # 3. 注意分隔符 ${{ matrix.sep }} 的使用
       run: |
         pyinstaller main.py \
           --name="NightCat_Watermark_${{ matrix.platform_name }}" \
           --windowed \
           --onefile \
           --clean \
-          --add-data "app/ui/assets/dark_watermarked_blind-200.png${{ matrix.sep }}app/ui/assets" \
+          --add-data "app/ui/styles.qss${{ matrix.sep }}app/ui" \
+          --add-data "app/ui/assets${{ matrix.sep }}app/ui/assets" \
           --exclude-module=matplotlib \
           --exclude-module=tkinter \
           --exclude-module=unittest \
@@ -74,20 +70,31 @@ jobs:
           --exclude-module=xml \
           --exclude-module=pandas
 
-    # 5. 上傳 Artifact (給開發者自己測試用)
+    # 打包成 ZIP (提升下載體驗)
+    - name: Compress Binary
+      shell: bash
+      run: |
+        cd dist
+        if [ "${{ matrix.os }}" == "windows-latest" ]; then
+          powershell Compress-Archive -Path "NightCat_Watermark_${{ matrix.platform_name }}.exe" -DestinationPath "../NightCat_${{ matrix.platform_name }}.zip"
+        else
+          zip -r "../NightCat_${{ matrix.platform_name }}.zip" "NightCat_Watermark_${{ matrix.platform_name }}${{ matrix.artifact_ext }}"
+        fi
+
+    # 上傳測試構建 (非 Release 時)
     - name: Upload Artifact
       if: startsWith(github.ref, 'refs/tags/') != true
       uses: actions/upload-artifact@v4
       with:
         name: NightCat_${{ matrix.platform_name }}
-        path: dist/NightCat_Watermark_${{ matrix.platform_name }}${{ matrix.artifact_ext }}
+        path: NightCat_${{ matrix.platform_name }}.zip
 
-    # 6. 發布到 Release (給用戶下載用)
+    # 正式發布 (Tag 觸發時)
     - name: Release to GitHub
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
-        files: dist/NightCat_Watermark_${{ matrix.platform_name }}${{ matrix.artifact_ext }}
+        files: NightCat_${{ matrix.platform_name }}.zip
         prerelease: ${{ contains(github.ref, '-') }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
