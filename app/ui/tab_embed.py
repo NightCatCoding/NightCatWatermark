@@ -284,19 +284,21 @@ class EmbedTab(QWidget):
     # ========================================================================
 
     def _create_zone_a(self) -> QFrame:
-        """Create Zone A - Input panel (image list)."""
+        """Create Zone A - Input panel (image list) - V3.0: Fixed alignment."""
         panel = QFrame()
         panel.setObjectName("inputPanel")
-        panel.setMinimumWidth(200)
-        panel.setMaximumWidth(320)
+        panel.setMinimumWidth(180)
+        panel.setMaximumWidth(300)
 
         layout = QVBoxLayout(panel)
-        layout.setContentsMargins(16, 16, 8, 16)
-        layout.setSpacing(12)
+        layout.setContentsMargins(12, 12, 10, 12)
+        layout.setSpacing(10)
 
-        # Header
+        # Header - FIXED: Proper alignment
         header = QLabel("INPUT")
         header.setObjectName("panelHeader")
+        header.setFixedHeight(20)
+        header.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         layout.addWidget(header)
 
         # Separator line
@@ -317,19 +319,21 @@ class EmbedTab(QWidget):
     # ========================================================================
 
     def _create_zone_b(self) -> QFrame:
-        """Create Zone B - Control/Process panel."""
+        """Create Zone B - Control/Process panel - V3.0: Fixed alignment."""
         panel = QFrame()
         panel.setObjectName("controlPanel")
-        panel.setMinimumWidth(300)
-        panel.setMaximumWidth(420)
+        panel.setMinimumWidth(270)
+        panel.setMaximumWidth(380)
 
         layout = QVBoxLayout(panel)
-        layout.setContentsMargins(8, 16, 8, 16)
-        layout.setSpacing(12)
+        layout.setContentsMargins(10, 12, 10, 12)
+        layout.setSpacing(10)
 
-        # Header
+        # Header - FIXED: Proper alignment
         header = QLabel("PROCESS")
         header.setObjectName("panelHeader")
+        header.setFixedHeight(20)
+        header.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         layout.addWidget(header)
 
         # Separator
@@ -361,7 +365,7 @@ class EmbedTab(QWidget):
         return panel
 
     def _create_visible_tab(self) -> QWidget:
-        """Create the visible watermark settings tab with scroll area."""
+        """Create the visible watermark settings tab with scroll area - V3.0 Optimized."""
         # Outer container
         container = QWidget()
         container_layout = QVBoxLayout(container)
@@ -377,15 +381,15 @@ class EmbedTab(QWidget):
         # Content widget inside scroll
         content = QWidget()
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(16)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(12)
 
-        # Enable toggle
+        # Enable toggle - FIXED: Proper sizing
         self.visible_enabled = QPushButton("◆ 啟用明水印")
         self.visible_enabled.setObjectName("toggleButton")
         self.visible_enabled.setCheckable(True)
         self.visible_enabled.setChecked(True)
-        self.visible_enabled.setMinimumHeight(42)
+        self.visible_enabled.setFixedHeight(38)
         layout.addWidget(self.visible_enabled)
 
         # Text input
@@ -398,11 +402,11 @@ class EmbedTab(QWidget):
         grid_widget = QWidget()
         grid_layout = QHBoxLayout(grid_widget)
         grid_layout.setContentsMargins(0, 0, 0, 0)
-        grid_layout.setSpacing(16)
+        grid_layout.setSpacing(12)
 
         # Left column
         left_col = QVBoxLayout()
-        left_col.setSpacing(14)
+        left_col.setSpacing(10)
 
         size_widget, self.font_size_slider, self.font_size_spin = self._create_slider(
             "字體大小", 8, 200, 40, " px"
@@ -419,27 +423,29 @@ class EmbedTab(QWidget):
         )
         left_col.addWidget(h_space_widget)
 
-        grid_layout.addLayout(left_col)
+        grid_layout.addLayout(left_col, 1)
 
         # Right column
         right_col = QVBoxLayout()
-        right_col.setSpacing(14)
+        right_col.setSpacing(10)
 
         angle_widget, self.angle_slider, self.angle_spin = self._create_slider(
             "旋轉角度", -90, 90, 30, "°"
         )
         right_col.addWidget(angle_widget)
 
-        # Color button
+        # Color button - FIXED: Proper alignment
         color_widget = QWidget()
         color_layout = QVBoxLayout(color_widget)
         color_layout.setContentsMargins(0, 0, 0, 0)
-        color_layout.setSpacing(6)
+        color_layout.setSpacing(4)
         color_label = QLabel("顏色")
         color_label.setObjectName("fieldLabel")
+        color_label.setFixedHeight(16)
+        color_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         color_layout.addWidget(color_label)
         self.color_button = ColorButton((128, 128, 128))
-        self.color_button.setFixedHeight(40)
+        self.color_button.setFixedHeight(34)
         color_layout.addWidget(self.color_button)
         right_col.addWidget(color_widget)
 
@@ -448,7 +454,7 @@ class EmbedTab(QWidget):
         )
         right_col.addWidget(v_space_widget)
 
-        grid_layout.addLayout(right_col)
+        grid_layout.addLayout(right_col, 1)
         layout.addWidget(grid_widget)
 
         layout.addStretch()
@@ -459,7 +465,7 @@ class EmbedTab(QWidget):
         return container
 
     def _create_blind_tab(self) -> QWidget:
-        """Create the blind watermark settings tab."""
+        """Create the blind watermark settings tab - V3.0: Fixed alignment."""
         container = QWidget()
         container_layout = QVBoxLayout(container)
         container_layout.setContentsMargins(0, 0, 0, 0)
@@ -471,15 +477,15 @@ class EmbedTab(QWidget):
 
         content = QWidget()
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(16)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(12)
 
-        # Enable toggle
+        # Enable toggle - FIXED: Consistent sizing
         self.blind_enabled = QPushButton("◆ 啟用暗水印")
         self.blind_enabled.setObjectName("toggleButton")
         self.blind_enabled.setCheckable(True)
         self.blind_enabled.setChecked(False)
-        self.blind_enabled.setMinimumHeight(42)
+        self.blind_enabled.setFixedHeight(38)
         layout.addWidget(self.blind_enabled)
 
         # Password
@@ -489,17 +495,20 @@ class EmbedTab(QWidget):
         # Hidden text
         self.blind_text = QLineEdit()
         self.blind_text.setPlaceholderText("要隱藏的文字信息")
+        self.blind_text.setFixedHeight(36)
         layout.addWidget(self._create_field_group("隱藏信息", self.blind_text))
 
-        # Info box
+        # Info box - FIXED: Better spacing
         info_box = QFrame()
         info_box.setObjectName("infoBox")
         info_layout = QVBoxLayout(info_box)
-        info_layout.setContentsMargins(14, 14, 14, 14)
-        info_layout.setSpacing(10)
+        info_layout.setContentsMargins(12, 10, 12, 10)
+        info_layout.setSpacing(8)
 
         info_title = QLabel("◇ 關於暗水印")
         info_title.setObjectName("infoBoxTitle")
+        info_title.setFixedHeight(18)
+        info_title.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         info_layout.addWidget(info_title)
 
         info_text = QLabel(
@@ -512,7 +521,7 @@ class EmbedTab(QWidget):
         info_layout.addWidget(info_text)
 
         layout.addWidget(info_box)
-        layout.addStretch()
+        layout.addStretch(1)
 
         scroll.setWidget(content)
         container_layout.addWidget(scroll)
@@ -520,29 +529,31 @@ class EmbedTab(QWidget):
         return container
 
     def _create_output_section(self) -> QFrame:
-        """Create the output directory and action button section."""
+        """Create the output directory and action button section - V4.0 Fixed."""
         section = QFrame()
         section.setObjectName("outputSection")
 
         layout = QVBoxLayout(section)
-        layout.setContentsMargins(10, 14, 10, 10)
-        layout.setSpacing(12)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(10)
 
-        # Output directory row
+        # Output directory row - V4.0: Proper alignment with unified heights
         output_row = QHBoxLayout()
         output_row.setSpacing(8)
+        output_row.setContentsMargins(0, 0, 0, 0)
 
         self.output_path = QLineEdit()
         self.output_path.setPlaceholderText("輸出目錄...")
         self.output_path.setText(str(Path.home() / "Pictures" / "Watermarked"))
+        self.output_path.setFixedHeight(34)  # V4.0: Unified height
         output_row.addWidget(self.output_path, 1)
 
         self.browse_btn = QPushButton("📁")
         self.browse_btn.setObjectName("iconButton")
-        self.browse_btn.setFixedSize(40, 40)
+        self.browse_btn.setFixedSize(34, 34)  # V4.0: Match input height
         self.browse_btn.setToolTip("選擇輸出目錄")
         self.browse_btn.clicked.connect(self._browse_output)
-        output_row.addWidget(self.browse_btn)
+        output_row.addWidget(self.browse_btn, 0, Qt.AlignmentFlag.AlignVCenter)
 
         layout.addLayout(output_row)
 
@@ -553,16 +564,17 @@ class EmbedTab(QWidget):
         self.progress_bar.setFixedHeight(6)
         layout.addWidget(self.progress_bar)
 
-        # Status label
+        # Status label - V4.0: Proper centering with fixed height
         self.status_label = QLabel("")
         self.status_label.setObjectName("statusText")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_label.setFixedHeight(22)
         layout.addWidget(self.status_label)
 
-        # CTA Button
+        # CTA Button - V4.0: Consistent height
         self.start_btn = QPushButton("▶ 開始製作")
         self.start_btn.setObjectName("ctaButton")
-        self.start_btn.setMinimumHeight(48)
+        self.start_btn.setFixedHeight(44)
         self.start_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.start_btn.clicked.connect(self._on_start_clicked)
         layout.addWidget(self.start_btn)
@@ -571,7 +583,7 @@ class EmbedTab(QWidget):
         self.cancel_btn = QPushButton("✕ 取消")
         self.cancel_btn.setObjectName("dangerButton")
         self.cancel_btn.setVisible(False)
-        self.cancel_btn.setMinimumHeight(48)
+        self.cancel_btn.setFixedHeight(40)
         layout.addWidget(self.cancel_btn)
 
         return section
@@ -581,17 +593,20 @@ class EmbedTab(QWidget):
     # ========================================================================
 
     def _create_zone_c(self) -> QFrame:
-        """Create Zone C - Preview/Output panel (V1.0: fills full height)."""
+        """Create Zone C - Preview/Output panel - V3.0: Fixed centering."""
         panel = QFrame()
         panel.setObjectName("previewPanel")
+        panel.setMinimumWidth(300)
 
         layout = QVBoxLayout(panel)
-        layout.setContentsMargins(8, 16, 16, 16)
-        layout.setSpacing(12)
+        layout.setContentsMargins(10, 12, 12, 12)
+        layout.setSpacing(10)
 
-        # Header row (simplified - no mascot here anymore)
+        # Header row - FIXED: Proper alignment
         header = QLabel("OUTPUT")
         header.setObjectName("panelHeader")
+        header.setFixedHeight(20)
+        header.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         layout.addWidget(header)
 
         # Separator
@@ -603,12 +618,13 @@ class EmbedTab(QWidget):
 
         # === PREVIEW CANVAS (Main attraction - fills remaining space) ===
         self.preview_canvas = TransparencyGridWidget()
-        layout.addWidget(self.preview_canvas, 1)  # stretch factor 1 to fill
+        layout.addWidget(self.preview_canvas, 1)
 
-        # Preview status bar
+        # Preview status bar - FIXED: Proper centering
         self.preview_info = QLabel("◇ 平鋪預覽 — 調整參數即時更新")
         self.preview_info.setObjectName("previewInfoBar")
         self.preview_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.preview_info.setFixedHeight(36)
         layout.addWidget(self.preview_info)
 
         return panel
@@ -618,21 +634,24 @@ class EmbedTab(QWidget):
     # ========================================================================
 
     def _create_text_input(self) -> QLineEdit:
-        """Create the watermark text input."""
+        """Create the watermark text input - V3.0: Fixed sizing."""
         self.visible_text = QLineEdit()
         self.visible_text.setPlaceholderText("水印文字，如：© NightCat 2024")
         self.visible_text.setText("© NightCat")
+        self.visible_text.setFixedHeight(36)
         return self.visible_text
 
     def _create_field_group(self, label: str, widget: QWidget) -> QWidget:
-        """Create a labeled field group."""
+        """Create a labeled field group - V3.0: Fixed alignment."""
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(6)
+        layout.setSpacing(4)
 
         lbl = QLabel(label)
         lbl.setObjectName("fieldLabel")
+        lbl.setFixedHeight(16)
+        lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         layout.addWidget(lbl)
         layout.addWidget(widget)
 
@@ -640,7 +659,7 @@ class EmbedTab(QWidget):
 
     def _create_slider(self, label: str, min_val: int, max_val: int,
                        default: int, suffix: str) -> tuple:
-        """Create a slider with spin box."""
+        """Create a slider with spin box - V4.0: Fixed alignment with unified heights."""
         widget = QWidget()
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -648,22 +667,29 @@ class EmbedTab(QWidget):
 
         lbl = QLabel(label)
         lbl.setObjectName("fieldLabel")
+        lbl.setFixedHeight(18)
+        lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         layout.addWidget(lbl)
 
         row = QHBoxLayout()
         row.setSpacing(10)
+        row.setContentsMargins(0, 0, 0, 0)
 
         slider = NoWheelSlider(Qt.Orientation.Horizontal)
         slider.setRange(min_val, max_val)
         slider.setValue(default)
+        slider.setFixedHeight(26)  # V4.0: Consistent slider height
         row.addWidget(slider, 1)
 
         spin = QSpinBox()
         spin.setRange(min_val, max_val)
         spin.setValue(default)
         spin.setSuffix(suffix)
-        spin.setFixedWidth(80)
-        row.addWidget(spin)
+        spin.setFixedWidth(72)
+        spin.setFixedHeight(32)  # V4.0: Unified spin box height
+        spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        spin.setButtonSymbols(QSpinBox.ButtonSymbols.UpDownArrows)
+        row.addWidget(spin, 0, Qt.AlignmentFlag.AlignVCenter)
 
         layout.addLayout(row)
 
@@ -675,7 +701,7 @@ class EmbedTab(QWidget):
 
     def _create_float_slider(self, label: str, min_val: float, max_val: float,
                              default: float, suffix: str) -> tuple:
-        """Create a float slider with double spin box."""
+        """Create a float slider with double spin box - V4.0: Fixed alignment with unified heights."""
         widget = QWidget()
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -683,14 +709,18 @@ class EmbedTab(QWidget):
 
         lbl = QLabel(label)
         lbl.setObjectName("fieldLabel")
+        lbl.setFixedHeight(18)
+        lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         layout.addWidget(lbl)
 
         row = QHBoxLayout()
         row.setSpacing(10)
+        row.setContentsMargins(0, 0, 0, 0)
 
         slider = NoWheelSlider(Qt.Orientation.Horizontal)
         slider.setRange(int(min_val * 10), int(max_val * 10))
         slider.setValue(int(default * 10))
+        slider.setFixedHeight(26)  # V4.0: Consistent slider height
         row.addWidget(slider, 1)
 
         spin = QDoubleSpinBox()
@@ -699,8 +729,11 @@ class EmbedTab(QWidget):
         spin.setSingleStep(0.1)
         spin.setDecimals(1)
         spin.setSuffix(suffix)
-        spin.setFixedWidth(80)
-        row.addWidget(spin)
+        spin.setFixedWidth(72)
+        spin.setFixedHeight(32)  # V4.0: Unified spin box height
+        spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+        row.addWidget(spin, 0, Qt.AlignmentFlag.AlignVCenter)
 
         layout.addLayout(row)
 

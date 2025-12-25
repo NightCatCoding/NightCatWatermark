@@ -28,7 +28,7 @@ from .widgets import DragDropLabel, PasswordLineEdit, MascotStatus, get_mascot_p
 
 
 class MascotDisplay(QWidget):
-    """Simple mascot display with status."""
+    """Simple mascot display with status - V4.0: Fixed centering and sizing."""
 
     STATUS_DATA = {
         MascotStatus.IDLE: ("😺", "等待中", "#00D4FF"),
@@ -41,23 +41,29 @@ class MascotDisplay(QWidget):
         super().__init__(parent)
         self._status = MascotStatus.IDLE
         self._mascot_pixmap = None
+        self.setFixedSize(120, 130)  # V4.0: Fixed widget size
         self._setup_ui()
         self._load_mascot()
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.setSpacing(12)
+        layout.setSpacing(10)
+        layout.setContentsMargins(8, 8, 8, 8)
 
+        # Mascot label - V4.0: Proper centering
         self.mascot_label = QLabel()
         self.mascot_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.mascot_label.setFixedSize(100, 100)
-        layout.addWidget(self.mascot_label)
+        self.mascot_label.setFixedSize(90, 90)
+        layout.addWidget(self.mascot_label, 0, Qt.AlignmentFlag.AlignCenter)
 
+        # Status label - V4.0: Proper centering and sizing
         self.status_label = QLabel("等待中")
-        self.status_label.setStyleSheet("color: #00D4FF; font-size: 14px; font-weight: 600;")
+        self.status_label.setStyleSheet("color: #00D4FF; font-size: 12px; font-weight: 600;")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.status_label)
+        self.status_label.setFixedHeight(22)
+        self.status_label.setMinimumWidth(90)
+        layout.addWidget(self.status_label, 0, Qt.AlignmentFlag.AlignCenter)
 
     def _load_mascot(self):
         path = get_mascot_path()
@@ -72,7 +78,7 @@ class MascotDisplay(QWidget):
         if not self._mascot_pixmap:
             return
 
-        size = 100
+        size = 90  # V4.0: Adjusted size
         scaled = self._mascot_pixmap.scaled(size, size,
                                             Qt.AspectRatioMode.KeepAspectRatioByExpanding,
                                             Qt.TransformationMode.SmoothTransformation)
@@ -88,7 +94,7 @@ class MascotDisplay(QWidget):
         painter.setClipPath(path)
         painter.drawPixmap(0, 0, scaled)
 
-        # Border
+        # Border - V4.0: Consistent sizing
         _, _, color = self.STATUS_DATA.get(self._status, self.STATUS_DATA[MascotStatus.IDLE])
         from PyQt6.QtGui import QPen
         painter.setClipping(False)
@@ -102,7 +108,7 @@ class MascotDisplay(QWidget):
         self._status = status
         icon, default_text, color = self.STATUS_DATA.get(status, self.STATUS_DATA[MascotStatus.IDLE])
         self.status_label.setText(text or default_text)
-        self.status_label.setStyleSheet(f"color: {color}; font-size: 14px; font-weight: 600;")
+        self.status_label.setStyleSheet(f"color: {color}; font-size: 12px; font-weight: 600;")
         self._update_display()
 
 
@@ -112,7 +118,7 @@ class TerminalOutput(QTextEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setReadOnly(True)
-        self.setMinimumHeight(180)
+        self.setMinimumHeight(150)
         self._reset_style()
         self._show_welcome()
 
@@ -122,10 +128,11 @@ class TerminalOutput(QTextEdit):
                 background-color: #0D1117;
                 color: #00D4FF;
                 border: 1px solid #21262D;
-                border-radius: 10px;
-                padding: 16px;
+                border-radius: 8px;
+                padding: 12px;
                 font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
-                font-size: 13px;
+                font-size: 11px;
+                line-height: 1.4;
             }
         """)
 
@@ -205,38 +212,45 @@ class ExtractTab(QWidget):
         main_layout.addWidget(splitter)
 
     def _create_left_panel(self):
+        """Create left panel - V4.0: Fixed alignment, spacing, and unified sizes."""
         panel = QFrame()
         panel.setObjectName("controlPanel")
-        panel.setMinimumWidth(350)
-        panel.setMaximumWidth(450)
+        panel.setMinimumWidth(300)
+        panel.setMaximumWidth(380)
 
         layout = QVBoxLayout(panel)
-        layout.setContentsMargins(20, 20, 12, 20)
-        layout.setSpacing(16)
+        layout.setContentsMargins(16, 16, 14, 16)
+        layout.setSpacing(12)
 
-        # Header
+        # Header - V4.0: Proper sizing
         header = QLabel("🔍 解析暗水印")
-        header.setStyleSheet("font-size: 16px; font-weight: 600; color: #F0F2F5;")
+        header.setStyleSheet("font-size: 14px; font-weight: 600; color: #F0F2F5;")
+        header.setFixedHeight(26)
+        header.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         layout.addWidget(header)
 
         # Drop zone
         self.drop_label = DragDropLabel(text="拖放圖片到這裡", show_mascot=False)
-        self.drop_label.setMinimumHeight(140)
+        self.drop_label.setMinimumHeight(110)
+        self.drop_label.setMaximumHeight(150)
         layout.addWidget(self.drop_label)
 
-        # File info
+        # File info - V4.0: Consistent styling with unified height
         self.file_info = QLabel("")
         self.file_info.setStyleSheet("""
             color: #00D4FF;
             background-color: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.3);
             border-radius: 6px;
-            padding: 10px;
-            font-size: 12px;
+            padding: 8px 14px;
+            font-size: 11px;
         """)
         self.file_info.setVisible(False)
+        self.file_info.setFixedHeight(34)  # V4.0: Unified height
+        self.file_info.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         layout.addWidget(self.file_info)
 
-        # Settings
+        # Settings frame
         settings_frame = QFrame()
         settings_frame.setStyleSheet("""
             QFrame {
@@ -246,75 +260,98 @@ class ExtractTab(QWidget):
             }
         """)
         settings_layout = QVBoxLayout(settings_frame)
-        settings_layout.setContentsMargins(16, 16, 16, 16)
-        settings_layout.setSpacing(14)
+        settings_layout.setContentsMargins(14, 14, 14, 14)
+        settings_layout.setSpacing(12)
 
-        # Password
+        # Password - V4.0: Proper label alignment
         pwd_label = QLabel("加密密碼")
-        pwd_label.setStyleSheet("color: #B0B8C4; font-size: 12px;")
+        pwd_label.setStyleSheet("color: #B0B8C4; font-size: 11px; font-weight: 500;")
+        pwd_label.setFixedHeight(18)
+        pwd_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         settings_layout.addWidget(pwd_label)
         self.password_input = PasswordLineEdit("輸入嵌入時的密碼")
         settings_layout.addWidget(self.password_input)
 
-        # Bit length
+        # Bit length - V4.0: Better alignment with unified heights
         bit_row = QHBoxLayout()
+        bit_row.setSpacing(12)
+        bit_row.setContentsMargins(0, 6, 0, 0)
         bit_label = QLabel("Bit Length")
-        bit_label.setStyleSheet("color: #B0B8C4; font-size: 12px;")
+        bit_label.setStyleSheet("color: #B0B8C4; font-size: 11px; font-weight: 500;")
+        bit_label.setFixedHeight(18)
+        bit_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         bit_row.addWidget(bit_label)
-        bit_row.addStretch()
+        bit_row.addStretch(1)
         self.bit_length_spin = QSpinBox()
         self.bit_length_spin.setRange(1, 100000)
         self.bit_length_spin.setValue(200)
-        self.bit_length_spin.setFixedWidth(100)
-        bit_row.addWidget(self.bit_length_spin)
+        self.bit_length_spin.setFixedWidth(95)
+        self.bit_length_spin.setFixedHeight(34)  # V4.0: Unified height
+        self.bit_length_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        bit_row.addWidget(self.bit_length_spin, 0, Qt.AlignmentFlag.AlignVCenter)
         settings_layout.addLayout(bit_row)
 
         layout.addWidget(settings_frame)
 
-        # Extract button
+        # Extract button - V4.0: Consistent sizing
         self.extract_btn = QPushButton("🔓 開始提取")
         self.extract_btn.setObjectName("ctaButton")
-        self.extract_btn.setMinimumHeight(48)
+        self.extract_btn.setFixedHeight(44)  # V4.0: Unified CTA height
         self.extract_btn.setEnabled(False)
         self.extract_btn.clicked.connect(self._on_extract_clicked)
         layout.addWidget(self.extract_btn)
 
-        # Clear button
+        # Clear button - V4.0: Consistent sizing
         self.clear_btn = QPushButton("✕ 清除")
         self.clear_btn.setObjectName("dangerButton")
         self.clear_btn.setVisible(False)
+        self.clear_btn.setFixedHeight(40)
         self.clear_btn.clicked.connect(self._clear_image)
         layout.addWidget(self.clear_btn)
 
-        layout.addStretch()
+        layout.addStretch(1)
 
         return panel
 
     def _create_right_panel(self):
+        """Create right panel - V4.0: Fixed alignment and centering."""
         panel = QFrame()
         panel.setStyleSheet("background-color: #1A1D23;")
+        panel.setMinimumWidth(340)
 
         layout = QVBoxLayout(panel)
-        layout.setContentsMargins(12, 20, 20, 20)
-        layout.setSpacing(20)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setContentsMargins(16, 18, 18, 18)
+        layout.setSpacing(18)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # Mascot
+        # Mascot - V4.0: Proper centering with container
+        mascot_container = QWidget()
+        mascot_container.setFixedHeight(140)
+        mascot_layout = QHBoxLayout(mascot_container)
+        mascot_layout.setContentsMargins(0, 0, 0, 0)
+        mascot_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
         self.mascot = MascotDisplay()
-        layout.addWidget(self.mascot, alignment=Qt.AlignmentFlag.AlignCenter)
+        mascot_layout.addWidget(self.mascot, 0, Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(mascot_container, 0, Qt.AlignmentFlag.AlignCenter)
 
         # Terminal
         self.result_text = TerminalOutput()
+        self.result_text.setMinimumHeight(180)
         layout.addWidget(self.result_text, 1)
 
-        # Copy button
+        # Copy button row - V4.0: Better alignment with unified height
         btn_row = QHBoxLayout()
-        btn_row.addStretch()
+        btn_row.setSpacing(12)
+        btn_row.setContentsMargins(0, 4, 0, 0)
+        btn_row.addStretch(1)
         self.copy_btn = QPushButton("📋 複製結果")
         self.copy_btn.setObjectName("secondaryButton")
         self.copy_btn.setEnabled(False)
+        self.copy_btn.setFixedHeight(38)  # V4.0: Unified button height
+        self.copy_btn.setFixedWidth(120)
         self.copy_btn.clicked.connect(self._copy_result)
-        btn_row.addWidget(self.copy_btn)
+        btn_row.addWidget(self.copy_btn, 0, Qt.AlignmentFlag.AlignVCenter)
         layout.addLayout(btn_row)
 
         return panel

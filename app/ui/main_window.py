@@ -1,21 +1,7 @@
 """
-Main Window V1.0 - Pop-Cyber Rounded Design
-============================================
-NightCat Watermark with soft, anime-inspired aesthetics.
-
-Layout:
-┌─────────────────────────────────────────────────────────────────┐
-│ 🐱 NIGHTCAT ══════════ [製作水印][解析水印] ══ [─][□][×]      │ ← Custom Title Bar with Avatar
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│                      Tab Content (Stacked)                      │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-
-Design Philosophy:
-- "Pop-Cyber" style: Cyberpunk functionality with pop/anime softness
-- Large rounded corners for a friendly, approachable feel
-- Mascot as persistent "guardian spirit" presence
+Main Window V5.1 - Clean Professional Design
+=============================================
+遵循 Windows 用戶心智模型，使用 QSS 確保樣式一致性。
 """
 
 from pathlib import Path
@@ -37,144 +23,63 @@ from .widgets import get_mascot_path
 
 
 class MascotAvatarWidget(QWidget):
-    """
-    Small mascot avatar for the title bar.
-    Acts as the app's "guardian spirit" - always present.
-    """
+    """標題欄吉祥物頭像 - 32x32 圓形"""
 
-    def __init__(self, size: int = 36, parent: Optional[QWidget] = None):
+    def __init__(self, size: int = 32, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self._size = size
         self._pixmap: Optional[QPixmap] = None
-
         self.setFixedSize(size, size)
         self._load_mascot()
 
     def _load_mascot(self):
-        """Load the mascot image."""
         mascot_path = get_mascot_path()
         if mascot_path.exists():
             self._pixmap = QPixmap(str(mascot_path))
 
     def paintEvent(self, event):
-        """Draw circular mascot avatar."""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
 
-        size = self._size
-        rect = QRectF(0, 0, size, size)
-
-        # Draw circular background
+        rect = QRectF(0, 0, self._size, self._size)
         path = QPainterPath()
         path.addEllipse(rect)
 
         if self._pixmap and not self._pixmap.isNull():
-            # Scale and center crop
-            scaled = self._pixmap.scaled(
-                size, size,
+            scaled = self._pixmap.scaled(self._size, self._size,
                 Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                Qt.TransformationMode.SmoothTransformation
-            )
-
-            # Center crop
-            x_offset = (scaled.width() - size) // 2
-            y_offset = (scaled.height() - size) // 2
-            cropped = scaled.copy(x_offset, y_offset, size, size)
-
-            # Clip to circle and draw
+                                         Qt.TransformationMode.SmoothTransformation)
+            x_off = (scaled.width() - self._size) // 2
+            y_off = (scaled.height() - self._size) // 2
+            cropped = scaled.copy(x_off, y_off, self._size, self._size)
             painter.setClipPath(path)
             painter.drawPixmap(0, 0, cropped)
             painter.setClipping(False)
         else:
-            # Fallback: draw emoji placeholder
             painter.fillPath(path, QColor("#24283B"))
             painter.setPen(QColor("#7AA2F7"))
             font = painter.font()
-            font.setPointSize(16)
+            font.setPointSize(14)
             painter.setFont(font)
             painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, "🐱")
 
-        # Draw glowing border
+        # 藍色光暈邊框
         pen = QPen(QColor("#7AA2F7"))
         pen.setWidth(2)
         painter.setPen(pen)
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawEllipse(rect.adjusted(1, 1, -1, -1))
-
-        painter.end()
-
-
-class AnimeWindowButton(QPushButton):
-    """
-    Anime-style window control button.
-    Capsule/pill shaped with vibrant hover colors.
-    """
-
-    def __init__(
-            self,
-            icon_text: str,
-            hover_color: str,
-            tooltip: str,
-            parent: Optional[QWidget] = None
-    ):
-        super().__init__(icon_text, parent)
-        self._hover_color = hover_color
-        self._is_hovered = False
-
-        self.setFixedSize(40, 28)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setToolTip(tooltip)
-
-        # Remove default styling - we'll paint custom
-        self.setStyleSheet("background: transparent; border: none;")
-
-    def enterEvent(self, event):
-        self._is_hovered = True
-        self.update()
-        super().enterEvent(event)
-
-    def leaveEvent(self, event):
-        self._is_hovered = False
-        self.update()
-        super().leaveEvent(event)
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        rect = QRectF(self.rect())
-        radius = rect.height() / 2  # Pill shape
-
-        # Background
-        if self._is_hovered:
-            painter.setBrush(QColor(self._hover_color))
-            text_color = QColor("#1A1B26")
-        else:
-            painter.setBrush(QColor("#2A2F42"))
-            text_color = QColor("#565F89")
-
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(rect.adjusted(2, 2, -2, -2), radius - 2, radius - 2)
-
-        # Icon text
-        painter.setPen(text_color)
-        font = painter.font()
-        font.setPointSize(10)
-        font.setBold(True)
-        painter.setFont(font)
-        painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, self.text())
-
         painter.end()
 
 
 class CustomTitleBar(QWidget):
     """
-    Features:
-    - Mascot avatar on the left (guardian spirit)
-    - App branding
-    - Segmented tab navigation (center)
-    - Anime-style window controls (right)
+    標題欄 V5.1 - 簡潔專業
+    
+    ┌────────────────────────────────────────────────────────────────┐
+    │  🐱 NIGHTCAT  │  [製作水印] [解析水印]  │   [─]  [□]  [×]  │
+    └────────────────────────────────────────────────────────────────┘
     """
 
     def __init__(self, parent: Optional['RoundedMainWindow'] = None):
@@ -184,180 +89,136 @@ class CustomTitleBar(QWidget):
         self._is_dragging = False
 
         self.setObjectName("customTitleBar")
-        self.setFixedHeight(56)
+        self.setFixedHeight(52)
         self._setup_ui()
 
     def _setup_ui(self):
-        """Setup the title bar UI."""
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 8, 12, 8)
+        layout.setContentsMargins(16, 0, 0, 0)
         layout.setSpacing(0)
 
-        # === LEFT: Mascot Avatar + App Branding ===
-        left_widget = QWidget()
-        left_widget.setFixedWidth(220)
-        left_layout = QHBoxLayout(left_widget)
-        left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.setSpacing(12)
+        # ===== 左側：品牌 =====
+        self.mascot = MascotAvatarWidget(size=32)
+        layout.addWidget(self.mascot)
 
-        # Mascot Avatar (Guardian Spirit)
-        self.mascot_avatar = MascotAvatarWidget(size=38)
-        left_layout.addWidget(self.mascot_avatar)
+        layout.addSpacing(10)
 
-        # App name container
-        name_container = QWidget()
-        name_layout = QVBoxLayout(name_container)
-        name_layout.setContentsMargins(0, 0, 0, 0)
-        name_layout.setSpacing(0)
+        brand = QLabel("NIGHTCAT")
+        brand.setStyleSheet("""
+            color: #C0CAF5;
+            font-size: 14px;
+            font-weight: bold;
+            letter-spacing: 2px;
+        """)
+        layout.addWidget(brand)
 
-        app_name = QLabel("NIGHTCAT")
-        app_name.setObjectName("titleBarAppName")
-        name_layout.addWidget(app_name)
+        layout.addSpacing(32)
 
-        version_label = QLabel("WATERMARK v1.0.0")
-        version_label.setObjectName("titleBarVersion")
-        name_layout.addWidget(version_label)
+        # ===== 中央：分段控制 =====
+        layout.addStretch(1)
 
-        left_layout.addWidget(name_container)
-        left_layout.addStretch()
-
-        layout.addWidget(left_widget)
-
-        # === CENTER: Segmented Tab Control ===
-        layout.addStretch()
-
-        self.segment_container = QWidget()
-        self.segment_container.setObjectName("segmentedControl")
-        segment_layout = QHBoxLayout(self.segment_container)
-        segment_layout.setContentsMargins(6, 6, 6, 6)
-        segment_layout.setSpacing(4)
-
+        # 分段控制容器
+        seg_container = QWidget()
+        seg_container.setObjectName("segmentedControl")
+        seg_layout = QHBoxLayout(seg_container)
+        seg_layout.setContentsMargins(4, 4, 4, 4)
+        seg_layout.setSpacing(2)
+        
         self.btn_embed = QPushButton("製作水印")
         self.btn_embed.setObjectName("segmentButton")
         self.btn_embed.setCheckable(True)
         self.btn_embed.setChecked(True)
         self.btn_embed.setCursor(Qt.CursorShape.PointingHandCursor)
-        segment_layout.addWidget(self.btn_embed)
-
+        self.btn_embed.setFixedSize(100, 32)
+        seg_layout.addWidget(self.btn_embed)
+        
         self.btn_extract = QPushButton("解析水印")
         self.btn_extract.setObjectName("segmentButton")
         self.btn_extract.setCheckable(True)
         self.btn_extract.setCursor(Qt.CursorShape.PointingHandCursor)
-        segment_layout.addWidget(self.btn_extract)
+        self.btn_extract.setFixedSize(100, 32)
+        seg_layout.addWidget(self.btn_extract)
 
-        layout.addWidget(self.segment_container)
+        layout.addWidget(seg_container)
 
-        layout.addStretch()
+        layout.addStretch(1)
 
-        # === RIGHT: Anime-style Window Controls ===
-        controls_widget = QWidget()
-        controls_widget.setFixedWidth(150)
-        controls_layout = QHBoxLayout(controls_widget)
-        controls_layout.setContentsMargins(0, 0, 0, 0)
-        controls_layout.setSpacing(8)
+        # ===== 右側：窗口控制 =====
+        # 最小化
+        self.btn_minimize = QPushButton("─")
+        self.btn_minimize.setObjectName("windowButton")
+        self.btn_minimize.setFixedSize(46, 52)
+        self.btn_minimize.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_minimize.setToolTip("最小化")
+        layout.addWidget(self.btn_minimize)
 
-        controls_layout.addStretch()
+        # 最大化
+        self.btn_maximize = QPushButton("□")
+        self.btn_maximize.setObjectName("windowButton")
+        self.btn_maximize.setFixedSize(46, 52)
+        self.btn_maximize.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_maximize.setToolTip("最大化")
+        layout.addWidget(self.btn_maximize)
 
-        # Minimize - Purple (Dracula)
-        self.btn_minimize = AnimeWindowButton(
-            icon_text="─",
-            hover_color="#BD93F9",
-            tooltip="最小化"
-        )
-        controls_layout.addWidget(self.btn_minimize)
-
-        # Maximize - Green (Dracula)
-        self.btn_maximize = AnimeWindowButton(
-            icon_text="□",
-            hover_color="#50FA7B",
-            tooltip="最大化"
-        )
-        controls_layout.addWidget(self.btn_maximize)
-
-        # Close - Red (Dracula)
-        self.btn_close = AnimeWindowButton(
-            icon_text="×",
-            hover_color="#FF5555",
-            tooltip="關閉"
-        )
-        controls_layout.addWidget(self.btn_close)
-
-        layout.addWidget(controls_widget)
+        # 關閉
+        self.btn_close = QPushButton("×")
+        self.btn_close.setObjectName("windowButtonClose")
+        self.btn_close.setFixedSize(46, 52)
+        self.btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_close.setToolTip("關閉")
+        layout.addWidget(self.btn_close)
 
     def update_maximize_button(self, is_maximized: bool):
-        """Update maximize button icon based on window state."""
         self.btn_maximize.setText("❐" if is_maximized else "□")
         self.btn_maximize.setToolTip("還原" if is_maximized else "最大化")
 
     def mousePressEvent(self, event: QMouseEvent):
-        """Handle mouse press for window dragging."""
         if event.button() == Qt.MouseButton.LeftButton:
-            # Check if click is in draggable area (not on interactive widgets)
-            widget_under = self.childAt(event.position().toPoint())
-
-            # Allow dragging if clicking on empty space or non-interactive widgets
-            is_draggable = True
-            if widget_under:
-                obj_name = widget_under.objectName()
-                if obj_name in ["segmentButton"] or isinstance(widget_under, AnimeWindowButton):
-                    is_draggable = False
-                # Check parent widgets too
-                parent = widget_under.parent()
-                while parent and parent != self:
-                    if isinstance(parent, AnimeWindowButton):
+            widget = self.childAt(event.position().toPoint())
+            is_draggable = not isinstance(widget, QPushButton)
+            if widget:
+                p = widget.parent()
+                while p and p != self:
+                    if p.objectName() == "segmentedControl":
                         is_draggable = False
                         break
-                    parent = parent.parent()
-
+                    p = p.parent()
+                    
             if is_draggable:
                 self._is_dragging = True
                 self._drag_position = event.globalPosition().toPoint() - self._parent.frameGeometry().topLeft()
                 event.accept()
-
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent):
-        """Handle mouse move for window dragging."""
         if self._is_dragging and self._drag_position:
             if self._parent.isMaximized():
-                # Restore from maximized before dragging
                 self._parent.showNormal()
-                # Adjust drag position
-                self._drag_position = QPoint(self._parent.width() // 2, 28)
-
+                self._drag_position = QPoint(self._parent.width() // 2, 26)
             self._parent.move(event.globalPosition().toPoint() - self._drag_position)
             event.accept()
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent):
-        """Handle mouse release."""
         self._is_dragging = False
         self._drag_position = None
         super().mouseReleaseEvent(event)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
-        """Handle double-click to maximize/restore."""
         if event.button() == Qt.MouseButton.LeftButton:
-            widget_under = self.childAt(event.position().toPoint())
-            is_draggable = True
-            if widget_under:
-                obj_name = widget_under.objectName()
-                if obj_name in ["segmentButton"] or isinstance(widget_under, AnimeWindowButton):
-                    is_draggable = False
-
-            if is_draggable:
+            widget = self.childAt(event.position().toPoint())
+            if not isinstance(widget, QPushButton):
                 if self._parent.isMaximized():
                     self._parent.showNormal()
                 else:
                     self._parent.showMaximized()
-
         super().mouseDoubleClickEvent(event)
 
 
 class RoundedMainWindow(QMainWindow):
     """
     Frameless main window with rounded corners.
-    
+
     Uses QPainterPath mask for true rounded corners on Windows.
     """
 

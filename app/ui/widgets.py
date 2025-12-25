@@ -454,16 +454,17 @@ class DragDropLabel(QLabel):
         self.setGraphicsEffect(shadow)
 
     def paintEvent(self, event):
-        """Custom paint for the drop zone."""
+        """Custom paint for the drop zone - V4.1 Fixed Layout."""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
 
         rect = self.rect()
+        margin = 4
 
         # Draw background with rounded corners
         path = QPainterPath()
-        path.addRoundedRect(QRectF(rect).adjusted(2, 2, -2, -2), 12, 12)
+        path.addRoundedRect(QRectF(rect).adjusted(margin, margin, -margin, -margin), 10, 10)
 
         # Background gradient
         gradient = QLinearGradient(0, 0, 0, rect.height())
@@ -488,27 +489,33 @@ class DragDropLabel(QLabel):
             pen.setColor(QColor(self.BORDER_COLOR))
 
         painter.setPen(pen)
-        painter.drawRoundedRect(QRectF(rect).adjusted(3, 3, -3, -3), 10, 10)
+        painter.drawRoundedRect(QRectF(rect).adjusted(margin + 1, margin + 1, -margin - 1, -margin - 1), 9, 9)
 
-        # Calculate center
-        center_y = rect.height() // 2
+        # Calculate content area
+        content_rect = rect.adjusted(margin + 8, margin + 8, -margin - 8, -margin - 8)
+        content_height = content_rect.height()
+        content_width = content_rect.width()
 
-        # Draw upload icon
-        icon_size = 32
-        icon_x = (rect.width() - icon_size) // 2
-        icon_y = center_y - icon_size // 2 - 15
+        # Total content height: icon(24) + gap(8) + text(16) + gap(4) + subtext(14) = ~66
+        total_content_height = 66
+        start_y = content_rect.top() + (content_height - total_content_height) // 2
 
-        painter.setPen(QPen(QColor(self.ACCENT_COLOR if self._is_dragging else "#6B7280"), 2))
+        # Draw upload arrow icon
+        icon_color = QColor(self.ACCENT_COLOR if self._is_dragging else "#6B7280")
+        painter.setPen(QPen(icon_color, 2))
 
-        # Arrow up icon
-        mid_x = icon_x + icon_size // 2
-        painter.drawLine(mid_x, icon_y + 8, mid_x, icon_y + icon_size - 8)
-        painter.drawLine(mid_x, icon_y + 8, mid_x - 8, icon_y + 16)
-        painter.drawLine(mid_x, icon_y + 8, mid_x + 8, icon_y + 16)
+        center_x = content_rect.center().x()
+        arrow_top = start_y
+        arrow_size = 24
 
-        text_y = icon_y + icon_size + 8
+        # Arrow pointing up
+        painter.drawLine(center_x, arrow_top + 4, center_x, arrow_top + arrow_size - 4)
+        painter.drawLine(center_x, arrow_top + 4, center_x - 7, arrow_top + 12)
+        painter.drawLine(center_x, arrow_top + 4, center_x + 7, arrow_top + 12)
 
-        # Draw hint text
+        # Draw main hint text
+        text_y = arrow_top + arrow_size + 8
+        
         font = QFont()
         font.setFamily("Microsoft YaHei UI")
         font.setPointSize(11)
@@ -522,17 +529,18 @@ class DragDropLabel(QLabel):
             painter.setPen(QColor(self.TEXT_COLOR))
             hint = self._hint_text
 
-        text_rect = QRectF(10, text_y, rect.width() - 20, 30)
+        text_rect = QRectF(content_rect.left(), text_y, content_width, 20)
         painter.drawText(text_rect, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, hint)
 
         # Draw secondary hint
+        sub_y = text_y + 20
         font.setPointSize(9)
         font.setWeight(QFont.Weight.Normal)
         painter.setFont(font)
         painter.setPen(QColor("#6B7280"))
 
         sub_hint = "PNG, JPG, WEBP 等格式"
-        sub_rect = QRectF(10, text_y + 22, rect.width() - 20, 20)
+        sub_rect = QRectF(content_rect.left(), sub_y, content_width, 16)
         painter.drawText(sub_rect, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, sub_hint)
 
         painter.end()
@@ -601,6 +609,7 @@ class DragDropLabel(QLabel):
 class ImageListWidget(QWidget):
     """
     A widget displaying a list of images with thumbnails.
+    V3.0: Fixed button alignment and consistent sizing.
     
     Supports drag-and-drop, selection, and removal of images.
     Compact design for side panel layout.
@@ -622,7 +631,7 @@ class ImageListWidget(QWidget):
         self._setup_ui()
 
     def _setup_ui(self):
-        """Setup the widget UI."""
+        """Setup the widget UI - V4.0: Unified element sizes."""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
@@ -632,8 +641,8 @@ class ImageListWidget(QWidget):
             text="點擊或拖放添加圖片",
             show_mascot=False
         )
-        self.drop_label.setMinimumHeight(80)
-        self.drop_label.setMaximumHeight(100)
+        self.drop_label.setMinimumHeight(70)
+        self.drop_label.setMaximumHeight(90)
         self.drop_label.files_dropped.connect(self.add_images)
         layout.addWidget(self.drop_label)
 
@@ -642,52 +651,45 @@ class ImageListWidget(QWidget):
         self.list_widget.setObjectName("imageList")
         self.list_widget.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.list_widget.setIconSize(QSize(self.THUMBNAIL_SIZE, self.THUMBNAIL_SIZE))
-        self.list_widget.setSpacing(2)
+        self.list_widget.setSpacing(3)
         self.list_widget.setAlternatingRowColors(False)
         self.list_widget.itemSelectionChanged.connect(self._on_selection_changed)
         layout.addWidget(self.list_widget, 1)
 
-        # Button row (compact)
+        # Button row - V4.0: Consistent button sizing and alignment
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(6)
+        btn_layout.setContentsMargins(0, 6, 0, 0)
 
         self.btn_add = QPushButton("➕")
         self.btn_add.setObjectName("iconButton")
-        self.btn_add.setFixedSize(32, 32)
+        self.btn_add.setFixedSize(34, 34)  # V4.0: Unified size
         self.btn_add.setToolTip("添加圖片")
         self.btn_add.clicked.connect(self._on_add_clicked)
-        btn_layout.addWidget(self.btn_add)
+        btn_layout.addWidget(self.btn_add, 0, Qt.AlignmentFlag.AlignVCenter)
 
         self.btn_remove = QPushButton("➖")
         self.btn_remove.setObjectName("iconButton")
-        self.btn_remove.setFixedSize(32, 32)
+        self.btn_remove.setFixedSize(34, 34)  # V4.0: Unified size
         self.btn_remove.setToolTip("移除選中")
         self.btn_remove.clicked.connect(self._on_remove_clicked)
-        btn_layout.addWidget(self.btn_remove)
+        btn_layout.addWidget(self.btn_remove, 0, Qt.AlignmentFlag.AlignVCenter)
 
         self.btn_clear = QPushButton("🗑️")
         self.btn_clear.setObjectName("iconButton")
-        self.btn_clear.setFixedSize(32, 32)
+        self.btn_clear.setFixedSize(34, 34)  # V4.0: Unified size
         self.btn_clear.setToolTip("清空列表")
         self.btn_clear.clicked.connect(self.clear_images)
-        btn_layout.addWidget(self.btn_clear)
+        btn_layout.addWidget(self.btn_clear, 0, Qt.AlignmentFlag.AlignVCenter)
 
-        btn_layout.addStretch()
+        btn_layout.addStretch(1)
 
-        # Image count label
+        # Image count label - V4.0: Proper centering and sizing
         self.count_label = QLabel("0 張")
         self.count_label.setObjectName("countLabel")
-        self.count_label.setStyleSheet("""
-            QLabel#countLabel {
-                color: #00B4D8;
-                font-weight: 600;
-                font-size: 12px;
-                padding: 4px 8px;
-                background-color: rgba(0, 180, 216, 0.1);
-                border-radius: 4px;
-            }
-        """)
-        btn_layout.addWidget(self.count_label)
+        self.count_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.count_label.setFixedSize(52, 24)
+        btn_layout.addWidget(self.count_label, 0, Qt.AlignmentFlag.AlignVCenter)
 
         layout.addLayout(btn_layout)
 
@@ -800,6 +802,7 @@ class ImageListWidget(QWidget):
 class PasswordLineEdit(QWidget):
     """
     A password input field with visibility toggle.
+    V4.0: Fixed button alignment and sizing with unified heights.
     
     Signals:
         textChanged(str): Emitted when text changes.
@@ -816,21 +819,22 @@ class PasswordLineEdit(QWidget):
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(6)
+        layout.setSpacing(8)
 
         self.line_edit = QLineEdit()
         self.line_edit.setPlaceholderText(placeholder)
         self.line_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self.line_edit.setFixedHeight(34)  # V4.0: Unified height
         self.line_edit.textChanged.connect(self.textChanged.emit)
-        layout.addWidget(self.line_edit)
+        layout.addWidget(self.line_edit, 1)
 
         self.toggle_btn = QPushButton("👁")
         self.toggle_btn.setObjectName("iconButton")
-        self.toggle_btn.setFixedSize(36, 36)
+        self.toggle_btn.setFixedSize(34, 34)  # V4.0: Match input height
         self.toggle_btn.setCheckable(True)
         self.toggle_btn.clicked.connect(self._toggle_visibility)
         self.toggle_btn.setToolTip("顯示/隱藏密碼")
-        layout.addWidget(self.toggle_btn)
+        layout.addWidget(self.toggle_btn, 0, Qt.AlignmentFlag.AlignVCenter)
 
     def _toggle_visibility(self, checked: bool):
         """Toggle password visibility."""
@@ -878,7 +882,7 @@ class ColorButton(QPushButton):
         super().__init__(parent)
 
         self._color = initial_color
-        self.setFixedSize(44, 36)
+        self.setFixedHeight(32)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.clicked.connect(self._open_color_dialog)
         self._update_style()
