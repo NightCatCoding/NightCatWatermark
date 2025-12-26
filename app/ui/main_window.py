@@ -89,30 +89,28 @@ class CustomTitleBar(QWidget):
         self._is_dragging = False
 
         self.setObjectName("customTitleBar")
-        self.setFixedHeight(52)
+        self.setFixedHeight(46)
         self._setup_ui()
 
     def _setup_ui(self):
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 0, 0, 0)
+        layout.setContentsMargins(14, 0, 0, 0)
         layout.setSpacing(0)
 
         # ===== 左側：品牌 =====
-        self.mascot = MascotAvatarWidget(size=32)
+        self.mascot = MascotAvatarWidget(size=28)
         layout.addWidget(self.mascot)
 
-        layout.addSpacing(10)
+        layout.addSpacing(8)
 
         brand = QLabel("NIGHTCAT")
         brand.setStyleSheet("""
-            color: #C0CAF5;
-            font-size: 14px;
-            font-weight: bold;
-            letter-spacing: 2px;
+            color: #A9B1D6;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 1px;
         """)
         layout.addWidget(brand)
-
-        layout.addSpacing(32)
 
         # ===== 中央：分段控制 =====
         layout.addStretch(1)
@@ -121,22 +119,20 @@ class CustomTitleBar(QWidget):
         seg_container = QWidget()
         seg_container.setObjectName("segmentedControl")
         seg_layout = QHBoxLayout(seg_container)
-        seg_layout.setContentsMargins(4, 4, 4, 4)
-        seg_layout.setSpacing(2)
+        seg_layout.setContentsMargins(3, 3, 3, 3)
+        seg_layout.setSpacing(0)
         
         self.btn_embed = QPushButton("製作水印")
         self.btn_embed.setObjectName("segmentButton")
         self.btn_embed.setCheckable(True)
         self.btn_embed.setChecked(True)
         self.btn_embed.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_embed.setFixedSize(100, 32)
         seg_layout.addWidget(self.btn_embed)
         
         self.btn_extract = QPushButton("解析水印")
         self.btn_extract.setObjectName("segmentButton")
         self.btn_extract.setCheckable(True)
         self.btn_extract.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_extract.setFixedSize(100, 32)
         seg_layout.addWidget(self.btn_extract)
 
         layout.addWidget(seg_container)
@@ -144,32 +140,29 @@ class CustomTitleBar(QWidget):
         layout.addStretch(1)
 
         # ===== 右側：窗口控制 =====
-        # 最小化
-        self.btn_minimize = QPushButton("─")
+        self.btn_minimize = QPushButton("—")
         self.btn_minimize.setObjectName("windowButton")
-        self.btn_minimize.setFixedSize(46, 52)
+        self.btn_minimize.setFixedSize(46, 46)
         self.btn_minimize.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_minimize.setToolTip("最小化")
         layout.addWidget(self.btn_minimize)
 
-        # 最大化
-        self.btn_maximize = QPushButton("□")
+        self.btn_maximize = QPushButton("☐")
         self.btn_maximize.setObjectName("windowButton")
-        self.btn_maximize.setFixedSize(46, 52)
+        self.btn_maximize.setFixedSize(46, 46)
         self.btn_maximize.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_maximize.setToolTip("最大化")
         layout.addWidget(self.btn_maximize)
 
-        # 關閉
-        self.btn_close = QPushButton("×")
+        self.btn_close = QPushButton("✕")
         self.btn_close.setObjectName("windowButtonClose")
-        self.btn_close.setFixedSize(46, 52)
+        self.btn_close.setFixedSize(46, 46)
         self.btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_close.setToolTip("關閉")
         layout.addWidget(self.btn_close)
 
     def update_maximize_button(self, is_maximized: bool):
-        self.btn_maximize.setText("❐" if is_maximized else "□")
+        self.btn_maximize.setText("❐" if is_maximized else "☐")
         self.btn_maximize.setToolTip("還原" if is_maximized else "最大化")
 
     def mousePressEvent(self, event: QMouseEvent):

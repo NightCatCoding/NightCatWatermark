@@ -65,8 +65,8 @@ QWidget#customTitleBar {
     border-bottom: 1px solid #3B4261;
     border-top-left-radius: 16px;
     border-top-right-radius: 16px;
-    min-height: 52px;
-    max-height: 52px;
+    min-height: 46px;
+    max-height: 46px;
 }
 
 /* ===== WINDOW CONTROL BUTTONS (V5.1 Windows Style) ===== */
@@ -98,35 +98,37 @@ QPushButton#windowButtonClose {
 }
 
 QPushButton#windowButtonClose:hover {
-    background-color: #E53935;
+    background-color: rgba(220, 38, 38, 0.9);
     color: #FFFFFF;
 }
 
 QPushButton#windowButtonClose:pressed {
-    background-color: #C62828;
+    background-color: rgba(185, 28, 28, 1);
     color: #FFFFFF;
 }
 
-/* ===== SEGMENTED CONTROL (V5.1) ===== */
+/* ===== SEGMENTED CONTROL (V5.2) ===== */
 QWidget#segmentedControl {
-    background-color: #1A1B26;
+    background-color: rgba(26, 27, 38, 0.8);
     border: 1px solid #3B4261;
-    border-radius: 8px;
-    padding: 4px;
+    border-radius: 6px;
+    padding: 3px;
 }
 
 QPushButton#segmentButton {
     background-color: transparent;
-    color: #6B7280;
+    color: #565F89;
     border: none;
-    border-radius: 6px;
-    font-size: 13px;
+    border-radius: 4px;
+    font-size: 12px;
     font-weight: 600;
+    padding: 6px 16px;
+    min-height: 24px;
 }
 
 QPushButton#segmentButton:hover {
     color: #A9B1D6;
-    background-color: rgba(122, 162, 247, 0.12);
+    background-color: rgba(122, 162, 247, 0.1);
 }
 
 QPushButton#segmentButton:checked {
