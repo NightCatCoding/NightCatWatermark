@@ -46,33 +46,71 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pyinstaller
-        pip install PyQt6 Pillow numpy trustmark torch torchvision
+
+        # CPU-only PyTorch (~200MB vs ~2GB for CUDA version)
+        pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+        # Core dependencies
+        pip install PyQt6 Pillow numpy trustmark
+
+    - name: Pre-download TrustMark Models
+      shell: bash
+      run: |
+        # TrustMark downloads model files on first init.
+        # We must trigger this BEFORE PyInstaller freezes the package.
+        python -c "
+        from trustmark import TrustMark
+        print('Downloading TrustMark Q models...')
+        tm = TrustMark(verbose=True, model_type='Q', loadRemover=False, loadBBoxDetector=False)
+        print('Models ready.')
+        "
+
+    - name: Locate TrustMark Models
+      id: models
+      shell: bash
+      run: |
+        # Find where trustmark stores its models
+        TRUSTMARK_DIR=$(python -c "import trustmark, os; print(os.path.dirname(trustmark.__file__))")
+        echo "trustmark_dir=$TRUSTMARK_DIR" >> $GITHUB_OUTPUT
+        echo "TrustMark package: $TRUSTMARK_DIR"
+        ls -la "$TRUSTMARK_DIR/models/" || echo "No models dir"
 
     - name: Build with PyInstaller
       shell: bash
-      # 關鍵修改：
-      # 1. 增加了 styles.qss 的打包
-      # 2. 增加了 assets 資料夾的完整打包 (避免漏圖)
-      # 3. 注意分隔符 ${{ matrix.sep }} 的使用
       run: |
         ICON_PATH="app/ui/assets/watermark_icon.ico"
+        TRUSTMARK_DIR="${{ steps.models.outputs.trustmark_dir }}"
+
         pyinstaller main.py \
           --name="NightCat_Watermark_${{ matrix.platform_name }}" \
           --windowed \
           --onefile \
           --clean \
           --icon="$ICON_PATH" \
+          --additional-hooks-dir="." \
           --add-data "app/ui/styles.qss${{ matrix.sep }}app/ui" \
           --add-data "app/ui/assets${{ matrix.sep }}app/ui/assets" \
-          --exclude-module=matplotlib \
-          --exclude-module=tkinter \
-          --exclude-module=unittest \
-          --exclude-module=email \
-          --exclude-module=http \
-          --exclude-module=xml \
-          --exclude-module=pandas
+          --add-data "${TRUSTMARK_DIR}/models${{ matrix.sep }}trustmark/models" \
+          --collect-data trustmark \
+          --collect-submodules torch \
+          --collect-submodules torchvision \
+          --hidden-import trustmark \
+          --hidden-import trustmark.trustmark \
+          --hidden-import trustmark.datalayer \
+          --hidden-import trustmark.bchecc \
+          --hidden-import trustmark.model \
+          --hidden-import trustmark.unet \
+          --hidden-import trustmark.denoise \
+          --exclude-module matplotlib \
+          --exclude-module tkinter \
+          --exclude-module unittest \
+          --exclude-module email \
+          --exclude-module http \
+          --exclude-module xml \
+          --exclude-module pandas \
+          --exclude-module torch.cuda \
+          --exclude-module torch.distributed
 
-    # 打包成 ZIP (提升下載體驗)
     - name: Compress Binary
       shell: bash
       run: |
@@ -83,7 +121,6 @@ jobs:
           zip -r "../NightCatWatermark_${{ matrix.platform_name }}.zip" "NightCat_Watermark_${{ matrix.platform_name }}${{ matrix.artifact_ext }}"
         fi
 
-    # 上傳測試構建 (非 Release 時)
     - name: Upload Artifact
       if: startsWith(github.ref, 'refs/tags/') != true
       uses: actions/upload-artifact@v4
@@ -91,7 +128,6 @@ jobs:
         name: NightCatWatermark_${{ matrix.platform_name }}
         path: NightCatWatermark_${{ matrix.platform_name }}.zip
 
-    # 正式發布 (Tag 觸發時)
     - name: Release to GitHub
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1

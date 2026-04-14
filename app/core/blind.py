@@ -33,9 +33,9 @@ def _get_trustmark():
         from trustmark import TrustMark
         _tm_instance = TrustMark(
             verbose=False,
-            model_type='Q',  # Best balance of robustness & quality (PSNR 43-45 dB)
-            # BCH_5 (default): 61 data bits → 8 ASCII7 chars
-            # This is the most robust error-correction level with usable capacity.
+            model_type='Q',  # PSNR 43-45 dB, best robustness/quality balance
+            loadRemover=False,  # We only need encode + decode
+            loadBBoxDetector=False,  # Skip unused detector model
         )
     return _tm_instance
 
