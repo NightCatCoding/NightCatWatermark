@@ -186,7 +186,7 @@ class WatermarkController:
 
         return EmbedConfig(
             image_paths=config_dict.get("image_paths", []),
-            output_dir=Path(config_dict.get("output_dir", ".")),
+            output_dir=Path(config_dict.get("output_dir", "app")),
             visible=visible_config,
             blind=blind_config,
             output_format="png"
@@ -257,7 +257,6 @@ class WatermarkController:
 
     def _show_embed_success_dialog(self, results: list):
         """Show success dialog with results."""
-        # Build message
         blind_enabled = any(r.bit_length is not None for r in results)
 
         message = f"成功處理 {len(results)} 張圖片！\n\n"
@@ -265,14 +264,10 @@ class WatermarkController:
 
         if blind_enabled:
             message += "\n" + "=" * 40 + "\n"
-            message += "⚠️ 重要：請保存以下暗水印提取信息！\n"
+            message += "✅ 暗水印已嵌入（TrustMark 引擎）\n"
             message += "=" * 40 + "\n\n"
-
-            for r in results:
-                if r.bit_length:
-                    message += f"📄 {r.source_path.name}\n"
-                    message += f"   → {r.output_path.name}\n"
-                    message += f"   bit_length = {r.bit_length}\n\n"
+            message += "提取時需要密碼。\n"
+            message += "水印可抗 JPEG 壓縮、縮放、裁剪等操作。\n"
 
         QMessageBox.information(self.window, "處理完成", message)
 
@@ -287,17 +282,10 @@ class WatermarkController:
 
         if failed:
             message += "失敗詳情：\n"
-            for r in failed[:5]:  # Show max 5 failures
+            for r in failed[:5]:
                 message += f"  • {r.source_path.name}: {r.error_message}\n"
             if len(failed) > 5:
                 message += f"  ... 還有 {len(failed) - 5} 個錯誤\n"
-
-        # Show bit_length info for successful blind watermarks
-        blind_success = [r for r in success if r.bit_length is not None]
-        if blind_success:
-            message += "\n暗水印 bit_length 值：\n"
-            for r in blind_success[:5]:
-                message += f"  • {r.output_path.name}: {r.bit_length}\n"
 
         QMessageBox.warning(self.window, "處理完成（部分失敗）", message)
 
@@ -353,10 +341,6 @@ class WatermarkController:
 
         if not config.get("password"):
             return "請輸入加密密碼"
-
-        bit_length = config.get("bit_length", 0)
-        if bit_length <= 0:
-            return "請輸入有效的 bit_length 值"
 
         return None
 

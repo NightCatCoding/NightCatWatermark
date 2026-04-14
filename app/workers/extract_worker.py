@@ -5,8 +5,9 @@ QThread worker for extracting blind watermarks from images.
 
 Workflow:
 1. Load the watermarked image
-2. Extract blind watermark using provided password and bit_length
-3. Emit result signal with extracted text
+2. Extract blind watermark using TrustMark (auto-detect, no bit_length needed)
+3. Decrypt with password
+4. Emit result signal with extracted text
 """
 
 import traceback
@@ -24,7 +25,7 @@ class ExtractConfig:
     """Configuration for blind watermark extraction."""
     image_path: Path
     password: str
-    bit_length: int  # Required - from embed result
+    bit_length: int = 0  # IGNORED — kept for backward compatibility
 
 
 @dataclass
@@ -39,62 +40,40 @@ class ExtractResult:
 class ExtractWorker(QThread):
     """
     Worker thread for extracting blind watermarks from images.
-    
+
     Signals:
         started_extraction(str): Emitted when extraction starts (filename)
         result_ready(ExtractResult): Emitted with extraction result
         error(str): Emitted on errors
     """
 
-    # Signals
-    started_extraction = pyqtSignal(str)  # filename
-    result_ready = pyqtSignal(object)  # ExtractResult
-    error = pyqtSignal(str)  # Error message
+    started_extraction = pyqtSignal(str)
+    result_ready = pyqtSignal(object)
+    error = pyqtSignal(str)
 
     def __init__(self, config: ExtractConfig, parent=None):
-        """
-        Initialize the extract worker.
-        
-        Args:
-            config: ExtractConfig with extraction settings.
-            parent: Optional parent QObject.
-        """
         super().__init__(parent)
         self.config = config
         self._blind_wm: Optional[BlindWatermarkerAdapter] = None
 
     def run(self):
-        """
-        Main worker execution.
-        
-        Extracts the blind watermark and emits the result.
-        """
         result = ExtractResult(source_path=self.config.image_path)
 
         try:
-            # Validate config
             if not self.config.image_path.exists():
-                raise FileNotFoundError(
-                    f"Image not found: {self.config.image_path}"
-                )
+                raise FileNotFoundError(f"Image not found: {self.config.image_path}")
 
             if not self.config.password:
                 raise ValueError("Password cannot be empty")
 
-            if self.config.bit_length <= 0:
-                raise ValueError("Invalid bit_length value")
-
-            # Emit started signal
             self.started_extraction.emit(self.config.image_path.name)
 
-            # Initialize extractor
             self._blind_wm = BlindWatermarkerAdapter()
 
-            # Perform extraction
+            # TrustMark auto-detects — no bit_length needed
             extracted_text = self._blind_wm.extract(
                 image_path=self.config.image_path,
                 password=self.config.password,
-                bit_length=self.config.bit_length
             )
 
             result.extracted_text = extracted_text
@@ -117,21 +96,17 @@ class ExtractWorker(QThread):
             traceback.print_exc()
 
         finally:
-            # Cleanup
             if self._blind_wm is not None:
                 self._blind_wm.cleanup()
                 self._blind_wm = None
 
-        # Emit result
         self.result_ready.emit(result)
 
 
 class BatchExtractWorker(QThread):
     """
     Worker thread for extracting blind watermarks from multiple images.
-    
-    Useful when processing a batch of images with the same password/bit_length.
-    
+
     Signals:
         progress(int, int, str): (current, total, filename)
         image_completed(ExtractResult): Emitted for each image
@@ -139,45 +114,28 @@ class BatchExtractWorker(QThread):
         error(str): Emitted on critical errors
     """
 
-    # Signals
-    progress = pyqtSignal(int, int, str)  # current, total, filename
-    image_completed = pyqtSignal(object)  # ExtractResult
-    finished_all = pyqtSignal(list)  # List[ExtractResult]
-    error = pyqtSignal(str)  # Error message
+    progress = pyqtSignal(int, int, str)
+    image_completed = pyqtSignal(object)
+    finished_all = pyqtSignal(list)
+    error = pyqtSignal(str)
 
     def __init__(
             self,
             image_paths: list[Path],
             password: str,
-            bit_length: int,
-            parent=None
+            bit_length: int = 0,  # IGNORED
+            parent=None,
     ):
-        """
-        Initialize the batch extract worker.
-        
-        Args:
-            image_paths: List of image paths to process.
-            password: Password for all images.
-            bit_length: Bit length for all images.
-            parent: Optional parent QObject.
-        """
         super().__init__(parent)
         self.image_paths = image_paths
         self.password = password
-        self.bit_length = bit_length
         self._is_cancelled = False
         self._blind_wm: Optional[BlindWatermarkerAdapter] = None
 
     def cancel(self):
-        """Request cancellation of the worker."""
         self._is_cancelled = True
 
     def run(self):
-        """
-        Main worker execution.
-        
-        Processes all images and emits progress/result signals.
-        """
         results: list[ExtractResult] = []
         total = len(self.image_paths)
 
@@ -187,28 +145,18 @@ class BatchExtractWorker(QThread):
             return
 
         try:
-            # Validate
             if not self.password:
                 self.error.emit("Password cannot be empty")
                 self.finished_all.emit(results)
                 return
 
-            if self.bit_length <= 0:
-                self.error.emit("Invalid bit_length value")
-                self.finished_all.emit(results)
-                return
-
-            # Initialize extractor
             self._blind_wm = BlindWatermarkerAdapter()
 
             for idx, image_path in enumerate(self.image_paths):
                 if self._is_cancelled:
                     break
 
-                # Emit progress
                 self.progress.emit(idx + 1, total, image_path.name)
-
-                # Process
                 result = ExtractResult(source_path=image_path)
 
                 try:
@@ -218,7 +166,6 @@ class BatchExtractWorker(QThread):
                     extracted_text = self._blind_wm.extract(
                         image_path=image_path,
                         password=self.password,
-                        bit_length=self.bit_length
                     )
 
                     result.extracted_text = extracted_text

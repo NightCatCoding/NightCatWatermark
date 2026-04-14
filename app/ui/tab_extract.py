@@ -20,7 +20,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPixmap, QPainter, QPainterPath, QColor
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QSpinBox, QPushButton,
+    QLabel, QPushButton,
     QTextEdit, QFrame, QSplitter, QApplication
 )
 
@@ -170,7 +170,7 @@ class TerminalOutput(QTextEdit):
 
 錯誤: {text}
 
-[{self._ts()}] 請檢查密碼或 bit_length""")
+[{self._ts()}] 請檢查密碼是否正確""")
 
     def reset(self):
         self._reset_style()
@@ -272,24 +272,13 @@ class ExtractTab(QWidget):
         self.password_input = PasswordLineEdit("輸入嵌入時的密碼")
         settings_layout.addWidget(self.password_input)
 
-        # Bit length - V4.0: Better alignment with unified heights
-        bit_row = QHBoxLayout()
-        bit_row.setSpacing(12)
-        bit_row.setContentsMargins(0, 6, 0, 0)
-        bit_label = QLabel("Bit Length")
-        bit_label.setStyleSheet("color: #B0B8C4; font-size: 11px; font-weight: 500;")
-        bit_label.setFixedHeight(18)
-        bit_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        bit_row.addWidget(bit_label)
-        bit_row.addStretch(1)
-        self.bit_length_spin = QSpinBox()
-        self.bit_length_spin.setRange(1, 100000)
-        self.bit_length_spin.setValue(200)
-        self.bit_length_spin.setFixedWidth(95)
-        self.bit_length_spin.setFixedHeight(34)  # V4.0: Unified height
-        self.bit_length_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        bit_row.addWidget(self.bit_length_spin, 0, Qt.AlignmentFlag.AlignVCenter)
-        settings_layout.addLayout(bit_row)
+        # Info note (replaces old bit_length field)
+        info_note = QLabel("✦ 自動檢測")
+        info_note.setStyleSheet(
+            "color: #10B981; font-size: 10px; padding: 6px 0 0 0;"
+        )
+        info_note.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        settings_layout.addWidget(info_note)
 
         layout.addWidget(settings_frame)
 
@@ -398,7 +387,7 @@ class ExtractTab(QWidget):
         config = {
             "image_path": self._current_image,
             "password": self.password_input.text(),
-            "bit_length": self.bit_length_spin.value()
+            "bit_length": 0  # Ignored by TrustMark — kept for API compat
         }
         self.start_extract_requested.emit(config)
 
@@ -419,11 +408,10 @@ class ExtractTab(QWidget):
         self.extract_btn.setEnabled(not is_processing)
         self.extract_btn.setText("⏳ 提取中..." if is_processing else "🔓 開始提取")
         self.password_input.setEnabled(not is_processing)
-        self.bit_length_spin.setEnabled(not is_processing)
 
     def get_config(self):
         return {
             "image_path": self._current_image,
             "password": self.password_input.text(),
-            "bit_length": self.bit_length_spin.value()
+            "bit_length": 0  # Ignored by TrustMark
         }

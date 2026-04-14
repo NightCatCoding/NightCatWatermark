@@ -1,441 +1,329 @@
 """
-Blind Watermark Processor (Adapter)
-===================================
-Wraps the blind_watermark library for invisible watermark embedding/extraction.
+Blind Watermark Processor — TrustMark Engine
+=============================================
+Robust invisible watermarking using Adobe TrustMark (ICCV 2025).
 
-Technical Notes:
-- Uses frequency domain (DCT) watermarking for robustness
-- Password/seed affects the embedding pattern - MUST match for extraction
-- PNG format is REQUIRED to preserve watermark (JPEG compression destroys it)
-- Data format: [MAGIC][LENGTH][DATA] for validation
+Key improvements over the old blind_watermark approach:
+- Survives JPEG compression (any quality)
+- Survives resize, crop (up to ~20%), rotation
+- Survives color filters, brightness/contrast changes
+- Survives screenshots and social-media recompression
+- No bit_length needed for extraction — auto-detected
+- Works with PNG, JPEG, WebP — any PIL-supported format
+
+Capacity with password: 6 ASCII chars (base64url encoded, fits BCH_5).
+Capacity without password: 8 ASCII7 chars (raw, BCH_5 default).
 """
 
+import base64
 import hashlib
-import tempfile
 from pathlib import Path
 from typing import Union, Optional, Tuple
 
-import cv2
-import numpy as np
 from PIL import Image
-from blind_watermark import WaterMark
 
+# Lazy-load TrustMark to avoid slow torch import at startup
+_tm_instance = None
+
+
+def _get_trustmark():
+    """Lazy-initialize the TrustMark encoder/decoder (singleton)."""
+    global _tm_instance
+    if _tm_instance is None:
+        from trustmark import TrustMark
+        _tm_instance = TrustMark(
+            verbose=False,
+            model_type='Q',  # Best balance of robustness & quality (PSNR 43-45 dB)
+            # BCH_5 (default): 61 data bits → 8 ASCII7 chars
+            # This is the most robust error-correction level with usable capacity.
+        )
+    return _tm_instance
+
+
+# ─── Constants ───────────────────────────────────────────────────────────
+
+# TrustMark BCH_5 mode capacity: 8 ASCII7 characters.
+# With base64url encryption: 6 input bytes → 8 base64 chars (exactly fits).
+# Without encryption: 8 raw ASCII7 chars.
+TRUSTMARK_MAX_PAYLOAD_CHARS = 8  # BCH_5 hard limit
+MAX_TEXT_CHARS_RAW = 8  # Without password
+MAX_TEXT_CHARS_ENCRYPTED = 6  # With password (base64url overhead)
+
+# Magic prefix to distinguish encrypted vs raw payloads.
+# Encrypted payloads start with "!" (1 char overhead).
+ENCRYPTED_PREFIX = "!"
+
+
+# ─── Crypto helpers ──────────────────────────────────────────────────────
+
+def _derive_key(password: str, length: int = 32) -> bytes:
+    """Derive a fixed-length key from a password using SHA-256."""
+    return hashlib.sha256(password.encode("utf-8")).digest()[:length]
+
+
+def _xor_crypt(data: bytes, key: bytes) -> bytes:
+    """XOR-encrypt/decrypt data with a repeating key."""
+    return bytes(b ^ key[i % len(key)] for i, b in enumerate(data))
+
+
+def _encrypt_text(text: str, password: str) -> str:
+    """
+    Encrypt text with password → base64url encoded string.
+
+    Flow: UTF-8 bytes → XOR with SHA-256(password) → base64url (no padding).
+
+    Capacity: 6 input bytes → 8 base64url chars → fits BCH_5 (8 char limit).
+    """
+    raw = text.encode("utf-8")
+    key = _derive_key(password)
+    encrypted = _xor_crypt(raw, key)
+    return base64.urlsafe_b64encode(encrypted).rstrip(b'=').decode('ascii')
+
+
+def _decrypt_text(b64_str: str, password: str) -> str:
+    """
+    Decrypt a base64url-encoded, XOR-encrypted string back to plaintext.
+
+    Raises ValueError if decryption produces invalid UTF-8.
+    """
+    # Restore base64 padding
+    try:
+        padding = 4 - len(b64_str) % 4
+        if padding != 4:
+            b64_str_padded = b64_str + '=' * padding
+        else:
+            b64_str_padded = b64_str
+        encrypted = base64.urlsafe_b64decode(b64_str_padded)
+    except Exception:
+        raise ValueError(
+            "提取的數據不是有效的水印格式。\n"
+            "密碼可能不正確，或圖片不含暗水印。"
+        )
+
+    key = _derive_key(password)
+    raw = _xor_crypt(encrypted, key)
+
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        raise ValueError("解密失敗 — 密碼可能不正確。")
+
+
+def _compute_encrypted_length(text: str) -> int:
+    """Calculate how many base64url chars the encrypted text will produce."""
+    n_bytes = len(text.encode("utf-8"))
+    # base64url without padding: ceil(n_bytes * 4 / 3)
+    return -(-n_bytes * 4 // 3)  # ceil division
+
+
+# ─── Public API ──────────────────────────────────────────────────────────
 
 class BlindWatermarkerAdapter:
     """
-    Adapter class for the blind_watermark library.
-    
-    This class provides a clean interface for embedding and extracting
-    invisible watermarks from images.
-    
-    Data format (in bits):
-    - MAGIC: 32 bits (4 bytes) - "NCAT" for validation
-    - LENGTH: 32 bits (4 bytes) - data length in bytes
-    - DATA: variable - UTF-8 encoded text
-    
-    Important: 
-    - Always use PNG format for output to preserve watermark integrity
-    - The password used for embedding MUST be used for extraction
+    Adapter for TrustMark-based robust invisible watermarking.
+
+    Usage:
+        adapter = BlindWatermarkerAdapter()
+
+        # Embed (with password encryption)
+        output_path, _ = adapter.embed(image_path, "mypassword", "NC2025", output_path)
+
+        # Extract — no bit_length needed!
+        text = adapter.extract(image_path, "mypassword")
+
+    Capacity:
+        With password: 6 ASCII chars (e.g. "NC2025", "User42")
+        Without password: 8 ASCII7 chars
     """
 
-    # Magic number for validation: "NCAT" in ASCII
-    MAGIC_BYTES = b"NCAT"
-    MAGIC_SIZE = 32  # bits (4 bytes)
-
-    # Header format: 4 bytes magic + 4 bytes length
-    LENGTH_SIZE = 32  # bits (4 bytes)
-    HEADER_SIZE = MAGIC_SIZE + LENGTH_SIZE  # 64 bits total
-
-    # Maximum supported text length in bytes
-    MAX_TEXT_BYTES = 500
+    MAX_TEXT_CHARS = MAX_TEXT_CHARS_ENCRYPTED  # Default assumes password is used
 
     def __init__(self):
-        """Initialize the BlindWatermarkerAdapter."""
-        self._temp_files: list[Path] = []
+        pass
 
-    def _password_to_seed(self, password: str) -> int:
+    @staticmethod
+    def get_max_text_length(image_path: Union[str, Path] = None) -> int:
         """
-        Convert a password string to an integer seed.
-        
-        Uses SHA-256 to generate a consistent seed from any password.
-        
-        Args:
-            password: The password string.
-            
-        Returns:
-            Integer seed for the watermark algorithm.
+        Get max text length in characters (assumes password encryption).
+
+        TrustMark capacity is fixed regardless of image size.
+        Image must be >= 150px on shortest side.
         """
-        hash_bytes = hashlib.sha256(password.encode("utf-8")).digest()
-        seed = int.from_bytes(hash_bytes[:8], byteorder="big")
-        return seed % (2 ** 31 - 1)
+        return MAX_TEXT_CHARS_ENCRYPTED
 
-    def _get_image_capacity(self, image_path: Path) -> int:
-        """
-        Calculate the maximum number of bits that can be embedded in an image.
-        
-        Args:
-            image_path: Path to the image file.
-            
-        Returns:
-            Maximum embeddable bits.
-        """
-        img = cv2.imread(str(image_path))
-        if img is None:
-            raise ValueError(f"Cannot read image: {image_path}")
-
-        height, width = img.shape[:2]
-        # Capacity formula: width * height / 64
-        capacity = (width * height) // 64
-        return capacity
-
-    def _text_to_bits(self, text: str) -> np.ndarray:
-        """
-        Convert text string to bit array for embedding.
-        
-        Format: [4-byte magic "NCAT"][4-byte length][UTF-8 data]
-        
-        Args:
-            text: Text to convert.
-            
-        Returns:
-            Numpy array of bits (0s and 1s).
-        """
-        data_bytes = text.encode("utf-8")
-        data_length = len(data_bytes)
-
-        # Build: MAGIC + LENGTH + DATA
-        length_bytes = data_length.to_bytes(4, byteorder="big")
-        full_data = self.MAGIC_BYTES + length_bytes + data_bytes
-
-        # Convert to bits
-        bits = []
-        for byte in full_data:
-            for i in range(7, -1, -1):
-                bits.append((byte >> i) & 1)
-
-        return np.array(bits, dtype=np.uint8)
-
-    def _bits_to_text(self, bits: np.ndarray) -> str:
-        """
-        Convert bit array back to text string.
-        
-        Args:
-            bits: Numpy array of bits.
-            
-        Returns:
-            Decoded text string.
-            
-        Raises:
-            ValueError: If the data is corrupted or invalid.
-        """
-        if len(bits) < self.HEADER_SIZE:
-            raise ValueError("Insufficient data: missing header")
-
-        # Extract and verify magic (first 32 bits)
-        magic_bits = bits[:self.MAGIC_SIZE]
-        magic_bytes = bytes([
-            int("".join(map(str, magic_bits[i:i + 8])), 2)
-            for i in range(0, self.MAGIC_SIZE, 8)
-        ])
-
-        if magic_bytes != self.MAGIC_BYTES:
-            raise ValueError(
-                "Invalid watermark data. "
-                "The password may be incorrect or the image may not contain a watermark."
-            )
-
-        # Extract length (next 32 bits)
-        length_bits = bits[self.MAGIC_SIZE:self.HEADER_SIZE]
-        length_bytes = bytes([
-            int("".join(map(str, length_bits[i:i + 8])), 2)
-            for i in range(0, self.LENGTH_SIZE, 8)
-        ])
-        data_length = int.from_bytes(length_bytes, byteorder="big")
-
-        # Sanity check
-        if data_length <= 0 or data_length > self.MAX_TEXT_BYTES:
-            raise ValueError(
-                f"Invalid data length: {data_length}. "
-                "The password may be incorrect or data is corrupted."
-            )
-
-        expected_total_bits = self.HEADER_SIZE + (data_length * 8)
-
-        if len(bits) < expected_total_bits:
-            raise ValueError(
-                f"Data truncated: expected {expected_total_bits} bits, got {len(bits)}"
-            )
-
-        # Extract data bits
-        data_bits = bits[self.HEADER_SIZE:expected_total_bits]
-
-        # Convert to bytes
-        data_bytes = bytes([
-            int("".join(map(str, data_bits[i:i + 8])), 2)
-            for i in range(0, len(data_bits), 8)
-        ])
-
-        try:
-            return data_bytes.decode("utf-8")
-        except UnicodeDecodeError as e:
-            raise ValueError(f"Failed to decode text: {e}")
-
-    def _ensure_png_format(self, image_path: Path) -> Path:
-        """
-        Ensure the image is in PNG format for processing.
-        
-        Args:
-            image_path: Path to the input image.
-            
-        Returns:
-            Path to the PNG image (may be temporary).
-        """
-        if image_path.suffix.lower() == ".png":
-            return image_path
-
-        img = Image.open(image_path)
-        if img.mode != "RGB":
-            img = img.convert("RGB")
-
-        temp_path = Path(tempfile.mktemp(suffix=".png"))
-        img.save(temp_path, "PNG")
-        img.close()
-        self._temp_files.append(temp_path)
-
-        return temp_path
-
-    def get_max_text_length(self, image_path: Union[str, Path]) -> int:
-        """
-        Get the maximum text length (in bytes) that can be embedded in an image.
-        
-        Args:
-            image_path: Path to the image file.
-            
-        Returns:
-            Maximum text length in bytes.
-        """
-        image_path = Path(image_path)
-        png_path = self._ensure_png_format(image_path)
-        capacity_bits = self._get_image_capacity(png_path)
-
-        # Subtract header size and convert to bytes
-        available_bits = capacity_bits - self.HEADER_SIZE
-        max_from_image = max(0, available_bits // 8)
-
-        # Also cap at MAX_TEXT_BYTES
-        return min(max_from_image, self.MAX_TEXT_BYTES)
+    @staticmethod
+    def get_max_text_length_raw() -> int:
+        """Get max text length without password encryption."""
+        return MAX_TEXT_CHARS_RAW
 
     def embed(
             self,
             image_path: Union[str, Path],
             password: str,
             text: str,
-            output_path: Optional[Union[str, Path]] = None
+            output_path: Optional[Union[str, Path]] = None,
     ) -> Tuple[Path, int]:
         """
-        Embed invisible watermark text into an image.
-        
+        Embed invisible watermark into an image.
+
         Args:
-            image_path: Path to the source image.
-            password: Password/key for watermark encryption.
-            text: Text to embed as watermark.
-            output_path: Path for output image. If None, auto-generated.
-            
+            image_path: Source image (any PIL-supported format).
+            password: Password for encryption. If empty, text is embedded raw.
+            text: Text to embed (max 6 chars with password, 8 without).
+            output_path: Output path. Defaults to {stem}_blind.png.
+
         Returns:
-            Tuple of (output_path, bit_length) where bit_length is needed
-            for extraction.
-            
-        Raises:
-            FileNotFoundError: If source image doesn't exist.
-            ValueError: If password or text is empty, or text too long.
+            Tuple of (output_path, 0).
+            Second element is always 0 (bit_length no longer needed).
         """
         image_path = Path(image_path)
         if not image_path.exists():
-            raise FileNotFoundError(f"Image not found: {image_path}")
-
-        if not password:
-            raise ValueError("Password cannot be empty")
+            raise FileNotFoundError(f"圖片不存在: {image_path}")
 
         if not text:
-            raise ValueError("Watermark text cannot be empty")
+            raise ValueError("水印文字不能為空")
 
-        text_bytes = text.encode("utf-8")
-        if len(text_bytes) > self.MAX_TEXT_BYTES:
+        # Encrypt if password is provided
+        if password:
+            payload = _encrypt_text(text, password)
+            max_input = MAX_TEXT_CHARS_ENCRYPTED
+        else:
+            payload = text
+            max_input = MAX_TEXT_CHARS_RAW
+
+        # Validate payload fits TrustMark capacity
+        if len(payload) > TRUSTMARK_MAX_PAYLOAD_CHARS:
             raise ValueError(
-                f"Text too long: {len(text_bytes)} bytes (max: {self.MAX_TEXT_BYTES})"
+                f"文字太長：編碼後 {len(payload)} 字符"
+                f"（上限 {TRUSTMARK_MAX_PAYLOAD_CHARS}）。\n"
+                f"請將文字縮短到 {max_input} 個 ASCII 字符以內。"
             )
 
-        # Ensure PNG format
-        png_path = self._ensure_png_format(image_path)
+        # Load image
+        cover = Image.open(image_path).convert("RGB")
 
-        # Check image capacity
-        max_text_len = self.get_max_text_length(png_path)
-        if len(text_bytes) > max_text_len:
+        # Validate minimum size
+        min_side = min(cover.size)
+        if min_side < 150:
             raise ValueError(
-                f"Text too long for this image: {len(text_bytes)} bytes "
-                f"(image capacity: {max_text_len} bytes). "
-                "Use a larger image or shorter text."
+                f"圖片太小：最短邊 {min_side}px（最低要求 150px）。"
             )
 
-        seed = self._password_to_seed(password)
-        bits = self._text_to_bits(text)
-        bit_length = len(bits)
-
+        # Determine output path
         if output_path is None:
             output_path = image_path.parent / f"{image_path.stem}_blind.png"
         else:
             output_path = Path(output_path)
-            if output_path.suffix.lower() != ".png":
-                output_path = output_path.with_suffix(".png")
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        wm = WaterMark(password_img=seed, password_wm=seed)
-        wm.read_img(str(png_path))
-        wm.read_wm(bits, mode="bit")
-        wm.embed(str(output_path))
+        # Embed watermark
+        tm = _get_trustmark()
+        watermarked = tm.encode(cover, payload)
 
-        return output_path, bit_length
+        # Save with appropriate format
+        suffix = output_path.suffix.lower()
+        if suffix in (".jpg", ".jpeg"):
+            watermarked.save(str(output_path), "JPEG", quality=95)
+        elif suffix == ".webp":
+            watermarked.save(str(output_path), "WEBP", quality=95)
+        else:
+            watermarked.save(str(output_path), "PNG")
+
+        cover.close()
+        return output_path, 0
 
     def embed_to_image(
             self,
             image: Image.Image,
             password: str,
-            text: str
+            text: str,
     ) -> Tuple[Image.Image, int]:
-        """
-        Embed invisible watermark into a PIL Image object.
-        
-        Args:
-            image: PIL Image object.
-            password: Password/key for watermark encryption.
-            text: Text to embed.
-            
-        Returns:
-            Tuple of (watermarked_image, bit_length).
-        """
-        temp_input = Path(tempfile.mktemp(suffix=".png"))
-        temp_output = Path(tempfile.mktemp(suffix=".png"))
+        """Embed invisible watermark into a PIL Image object."""
+        if image.mode != "RGB":
+            image = image.convert("RGB")
 
-        try:
-            if image.mode != "RGB":
-                image = image.convert("RGB")
-            image.save(temp_input, "PNG")
+        if not text:
+            raise ValueError("水印文字不能為空")
 
-            self.embed(temp_input, password, text, temp_output)
+        if password:
+            payload = _encrypt_text(text, password)
+        else:
+            payload = text
 
-            result = Image.open(temp_output).copy()
-            bits = self._text_to_bits(text)
+        if len(payload) > TRUSTMARK_MAX_PAYLOAD_CHARS:
+            max_input = MAX_TEXT_CHARS_ENCRYPTED if password else MAX_TEXT_CHARS_RAW
+            raise ValueError(
+                f"文字太長：編碼後 {len(payload)} 字符"
+                f"（上限 {TRUSTMARK_MAX_PAYLOAD_CHARS}）。\n"
+                f"請將文字縮短到 {max_input} 個 ASCII 字符以內。"
+            )
 
-            return result, len(bits)
-
-        finally:
-            if temp_input.exists():
-                temp_input.unlink()
-            if temp_output.exists():
-                temp_output.unlink()
+        tm = _get_trustmark()
+        watermarked = tm.encode(image, payload)
+        return watermarked, 0
 
     def extract(
             self,
             image_path: Union[str, Path],
             password: str,
-            bit_length: Optional[int] = None
+            bit_length: Optional[int] = None,  # IGNORED — kept for API compat
     ) -> str:
         """
         Extract invisible watermark from an image.
-        
-        Args:
-            image_path: Path to the watermarked image.
-            password: Password used during embedding.
-            bit_length: Length of embedded data in bits. If None, uses
-                       the bit_length that was returned from embed().
-                       
-        Returns:
-            Extracted watermark text.
-            
-        Raises:
-            FileNotFoundError: If image doesn't exist.
-            ValueError: If extraction fails or data is corrupted.
+
+        No bit_length needed! TrustMark auto-detects.
         """
         image_path = Path(image_path)
         if not image_path.exists():
-            raise FileNotFoundError(f"Image not found: {image_path}")
+            raise FileNotFoundError(f"圖片不存在: {image_path}")
 
-        if not password:
-            raise ValueError("Password cannot be empty")
+        stego = Image.open(image_path).convert("RGB")
 
-        if bit_length is None:
+        tm = _get_trustmark()
+        wm_secret, wm_present, wm_schema = tm.decode(stego)
+        stego.close()
+
+        if not wm_present:
             raise ValueError(
-                "bit_length is required for extraction. "
-                "Use the bit_length returned from embed()."
+                "未檢測到暗水印。\n"
+                "可能原因：\n"
+                "• 圖片不含 TrustMark 水印\n"
+                "• 圖片遭受了嚴重破壞（如極低質量 JPEG 或大幅裁剪）"
             )
 
-        seed = self._password_to_seed(password)
-        png_path = self._ensure_png_format(image_path)
-
-        # Verify bit_length doesn't exceed capacity
-        capacity = self._get_image_capacity(png_path)
-        if bit_length > capacity:
-            raise ValueError(
-                f"bit_length ({bit_length}) exceeds image capacity ({capacity})"
-            )
-
-        wm = WaterMark(password_img=seed, password_wm=seed)
-        extracted_bits = wm.extract(str(png_path), wm_shape=bit_length, mode="bit")
-
-        bits = np.array(extracted_bits).round().astype(np.uint8)
-
-        return self._bits_to_text(bits)
+        if password:
+            return _decrypt_text(wm_secret, password)
+        else:
+            return wm_secret
 
     def cleanup(self):
-        """Clean up any temporary files created during processing."""
-        for temp_file in self._temp_files:
-            try:
-                if temp_file.exists():
-                    temp_file.unlink()
-            except OSError:
-                pass
-        self._temp_files.clear()
+        """No-op. Kept for API compatibility."""
+        pass
 
     def __del__(self):
-        """Destructor to ensure cleanup."""
-        self.cleanup()
+        pass
 
 
-# Convenience functions
+# ─── Convenience functions ───────────────────────────────────────────────
+
 def embed_blind_watermark(
         image_path: Union[str, Path],
         output_path: Union[str, Path],
         password: str,
-        text: str
+        text: str,
 ) -> int:
-    """
-    Convenience function to embed a blind watermark.
-    
-    Returns:
-        Bit length needed for extraction.
-    """
+    """Convenience function. Returns 0 (bit_length no longer needed)."""
     adapter = BlindWatermarkerAdapter()
-    try:
-        _, bit_length = adapter.embed(image_path, password, text, output_path)
-        return bit_length
-    finally:
-        adapter.cleanup()
+    _, bit_length = adapter.embed(image_path, password, text, output_path)
+    return bit_length
 
 
 def extract_blind_watermark(
         image_path: Union[str, Path],
         password: str,
-        bit_length: int
+        bit_length: int = 0,
 ) -> str:
-    """
-    Convenience function to extract a blind watermark.
-    
-    Args:
-        bit_length: Required - the bit_length from embed().
-    """
+    """Convenience function. bit_length is ignored."""
     adapter = BlindWatermarkerAdapter()
-    try:
-        return adapter.extract(image_path, password, bit_length)
-    finally:
-        adapter.cleanup()
+    return adapter.extract(image_path, password)

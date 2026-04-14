@@ -13,8 +13,8 @@ Workflow:
 
 Naming Convention:
 - Visible only: filename_watermarked.png
-- Blind only: filename_blind-{bit_length}.png
-- Both: filename_watermarked_blind-{bit_length}.png
+- Blind only: filename_blind.png
+- Both: filename_watermarked_blind.png
 """
 
 import tempfile
@@ -137,12 +137,12 @@ class EmbedWorker(QThread):
         
         Naming Convention:
         - Visible only: filename_watermarked.png
-        - Blind only: filename_blind-{bit_length}.png
-        - Both: filename_watermarked_blind-{bit_length}.png
+        - Blind only: filename_blind.png
+        - Both: filename_watermarked_blind.png
         
         Args:
             source_path: Original source file path.
-            bit_length: Bit length for blind watermark (if applicable).
+            bit_length: IGNORED (kept for API compat).
             
         Returns:
             Output filename string.
@@ -153,17 +153,13 @@ class EmbedWorker(QThread):
         visible_enabled = self.config.visible.enabled
         blind_enabled = self.config.blind.enabled
 
-        if visible_enabled and blind_enabled and bit_length is not None:
-            # Both watermarks
-            return f"{base_name}_watermarked_blind-{bit_length}{suffix}"
-        elif blind_enabled and bit_length is not None:
-            # Blind watermark only - include bit_length in filename
-            return f"{base_name}_blind-{bit_length}{suffix}"
+        if visible_enabled and blind_enabled:
+            return f"{base_name}_watermarked_blind{suffix}"
+        elif blind_enabled:
+            return f"{base_name}_blind{suffix}"
         elif visible_enabled:
-            # Visible watermark only
             return f"{base_name}_watermarked{suffix}"
         else:
-            # Fallback (shouldn't happen)
             return f"{base_name}_output{suffix}"
 
     def _process_single_image(self, image_path: Path) -> EmbedResult:
@@ -222,7 +218,7 @@ class EmbedWorker(QThread):
             if self.config.blind.enabled and self._blind_wm is not None:
                 blind_cfg = self.config.blind
 
-                # First, embed to get the bit_length
+                # First, embed the blind watermark
                 temp_blind_output = Path(tempfile.mktemp(suffix=".png"))
 
                 try:
@@ -235,7 +231,7 @@ class EmbedWorker(QThread):
 
                     result.bit_length = bit_length
 
-                    # Now generate the final filename with bit_length
+                    # Generate the final filename
                     final_output_name = self._generate_output_filename(
                         image_path, bit_length
                     )

@@ -492,9 +492,10 @@ class EmbedTab(QWidget):
         self.blind_password = PasswordLineEdit("加密密碼（必填）")
         layout.addWidget(self._create_field_group("加密密碼", self.blind_password))
 
-        # Hidden text
+        # Hidden text — max 6 ASCII chars with password encryption
         self.blind_text = QLineEdit()
-        self.blind_text.setPlaceholderText("要隱藏的文字信息")
+        self.blind_text.setPlaceholderText("如 NC2025（≤6字符）")
+        self.blind_text.setMaxLength(6)  # TrustMark BCH_5: 6 bytes → 8 base64 chars
         self.blind_text.setFixedHeight(36)
         layout.addWidget(self._create_field_group("隱藏信息", self.blind_text))
 
@@ -512,9 +513,10 @@ class EmbedTab(QWidget):
         info_layout.addWidget(info_title)
 
         info_text = QLabel(
-            "• 嵌入圖片頻域，肉眼完全不可見\n"
-            "• 提取需要相同的密碼\n"
-            "• 輸出必須為 PNG 格式（無損）"
+            "• 深度學習水印，抗 JPEG / 縮放 / 裁剪\n"
+            "• 提取需密碼\n"
+            "• 支持 PNG / JPEG / WebP 輸出\n"
+            "• 有密碼時最多 6 字符"
         )
         info_text.setObjectName("infoBoxText")
         info_text.setWordWrap(True)
