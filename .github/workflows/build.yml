@@ -46,7 +46,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pyinstaller
-        pip install PyQt6 Pillow numpy blind-watermark opencv-python-headless
+        pip install PyQt6 Pillow numpy trustmark torch torchvision
 
     - name: Build with PyInstaller
       shell: bash
