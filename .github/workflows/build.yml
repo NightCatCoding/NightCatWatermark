@@ -43,6 +43,8 @@ jobs:
 
     - name: Install Dependencies
       shell: bash
+      env:
+        PYTHONUTF8: "1"
       run: |
         python -m pip install --upgrade pip
         pip install pyinstaller
@@ -50,7 +52,7 @@ jobs:
         # CPU-only PyTorch (~200MB vs ~2GB for CUDA version)
         pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
-        # Core dependencies
+        # Core dependencies (PYTHONUTF8=1 fixes Windows charmap decode error)
         pip install PyQt6 Pillow numpy trustmark
 
     - name: Pre-download TrustMark Models
