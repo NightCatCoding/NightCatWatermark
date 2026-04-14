@@ -106,9 +106,7 @@ jobs:
           --exclude-module matplotlib \
           --exclude-module tkinter \
           --exclude-module unittest \
-          --exclude-module pandas \
-          --exclude-module torch.cuda \
-          --exclude-module torch.distributed
+          --exclude-module pandas
 
     - name: Compress Binary
       shell: bash
