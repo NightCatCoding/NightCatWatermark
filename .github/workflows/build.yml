@@ -102,11 +102,7 @@ jobs:
           --hidden-import trustmark.bchecc \
           --hidden-import trustmark.model \
           --hidden-import trustmark.unet \
-          --hidden-import trustmark.denoise \
-          --exclude-module matplotlib \
-          --exclude-module tkinter \
-          --exclude-module unittest \
-          --exclude-module pandas
+          --hidden-import trustmark.denoise
 
     - name: Compress Binary
       shell: bash
