@@ -106,9 +106,6 @@ jobs:
           --exclude-module matplotlib \
           --exclude-module tkinter \
           --exclude-module unittest \
-          --exclude-module email \
-          --exclude-module http \
-          --exclude-module xml \
           --exclude-module pandas \
           --exclude-module torch.cuda \
           --exclude-module torch.distributed
